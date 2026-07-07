@@ -1,0 +1,44 @@
+/* 디자인 토큰 — design-reference 3종 HTML의 :root 변수를 그대로 이식.
+   포인트 컬러 오렌지 #D96A28, 미니멀. 임의 변경 금지. */
+:root {
+  /* 브랜드 오렌지 */
+  --org: #D96A28;
+  --org-light: #FAF0E8;
+  --org-muted: #B85820;
+  --org-hover: #C25E22;
+
+  /* 배경/표면 */
+  --bg: #F7F6F3;
+  --surface: #FFFFFF;
+  --surface-2: #F2F1ED;
+
+  /* 텍스트 */
+  --text-1: #2A2A28;
+  --text-2: #6B6A65;
+  --text-3: #9C9B95;
+
+  /* 상태색 */
+  --danger: #C0392B;
+  --danger-bg: #FBEAE7;
+  --danger-fg: #B23A2E;
+  --ok: #3E7C59;
+  --ok-bg: #E8F1EC;
+  --warn-bg: #F8EFD7;
+  --warn-fg: #8A6D17;
+
+  /* 배지 (인기/유용) */
+  --hot-bg: #FBEAE7;
+  --hot-fg: #B23A2E;
+  --gold-bg: #F8EFD7;
+  --gold-fg: #8A6D17;
+
+  /* 보더/반경 */
+  --border: rgba(0, 0, 0, 0.10);
+  --border-strong: rgba(0, 0, 0, 0.18);
+  --radius-md: 8px;
+  --radius-lg: 12px;
+
+  /* 폰트 — 데모와 동일한 시스템 스택 */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+}

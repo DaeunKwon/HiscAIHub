@@ -1,0 +1,17 @@
+# 로컬 개발용 인프라. 운영은 환경변수(DATABASE_URL)로 외부 서비스로 전환.
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: aihub-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: aihub
+      POSTGRES_PASSWORD: aihub_dev_pw
+      POSTGRES_DB: aihub
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:
