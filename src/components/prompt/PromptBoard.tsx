@@ -5,6 +5,7 @@ import type { PromptDTO } from "@/lib/prompts";
 import PromptDetailModal from "./PromptDetailModal";
 import PromptFormModal, { type PromptDraft } from "./PromptFormModal";
 import PromptCreateModal from "./PromptCreateModal";
+import { launchClaude } from "@/lib/launch-claude";
 import {
   HeartIcon,
   HeartFillIcon,
@@ -116,17 +117,17 @@ export default function PromptBoard({
   }
 
   async function runPrompt(p: PromptDTO) {
-    try {
-      await navigator.clipboard.writeText(p.body);
-    } catch {}
-    const q = encodeURIComponent(p.body);
-    window.open(`https://claude.ai/new?q=${q}`, "_blank", "noopener");
+    const where = await launchClaude(p.body);
     const res = await fetch(`/api/prompts/${p.id}/run`, { method: "POST" });
     if (res.ok) {
       const data = await res.json();
       setPrompts((prev) => prev.map((x) => (x.id === p.id ? { ...x, runs: data.runs } : x)));
     }
-    showToast("Claude 새 탭을 열었어요 (프롬프트 복사됨)");
+    showToast(
+      where === "desktop"
+        ? "Claude 데스크톱을 열었어요 (프롬프트 자동 입력됨)"
+        : "Claude 새 탭을 열었어요 (프롬프트 자동 입력됨)"
+    );
   }
 
   async function submitComment(id: string, text: string): Promise<boolean> {

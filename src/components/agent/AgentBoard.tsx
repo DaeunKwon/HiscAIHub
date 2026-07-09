@@ -6,6 +6,7 @@ import "@/styles/agent-board.css";
 import AgentDetailModal from "./AgentDetailModal";
 import AgentFormModal, { type AgentDraft } from "./AgentFormModal";
 import AgentCreateModal from "./AgentCreateModal";
+import { launchClaude } from "@/lib/launch-claude";
 import {
   BotIcon,
   HeartIcon,
@@ -80,19 +81,20 @@ export default function AgentBoard({
     showToast("지침이 복사됐어요");
   }
 
-  // 에이전트도 프롬프트와 동일하게 claude.ai 새 탭으로 이동해 각자 PC에서 직접 실행 (파일은 그 창에서 첨부).
+  // 에이전트도 프롬프트와 동일하게 Claude(데스크톱 있으면 데스크톱, 없으면 웹)로 실행.
+  // 파일은 열린 Claude 창에서 각자 직접 첨부.
   async function runAgent(a: AgentDTO) {
-    try {
-      await navigator.clipboard.writeText(a.instructions);
-    } catch {}
-    const q = encodeURIComponent(a.instructions);
-    window.open(`https://claude.ai/new?q=${q}`, "_blank", "noopener");
+    const where = await launchClaude(a.instructions);
     const res = await fetch(`/api/agents/${a.id}/run`, { method: "POST" });
     if (res.ok) {
       const data = await res.json();
       setAgents((prev) => prev.map((x) => (x.id === a.id ? { ...x, runs: data.runs } : x)));
     }
-    showToast("Claude 새 탭을 열었어요 (지침 복사됨). 필요한 파일은 그 창에서 직접 첨부해주세요.");
+    showToast(
+      where === "desktop"
+        ? "Claude 데스크톱을 열었어요 (지침 자동 입력됨). 필요한 파일은 그 창에서 첨부해주세요."
+        : "Claude 새 탭을 열었어요 (지침 자동 입력됨). 필요한 파일은 그 창에서 첨부해주세요."
+    );
   }
 
   async function submitComment(id: string, text: string): Promise<boolean> {
