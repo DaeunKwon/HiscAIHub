@@ -123,7 +123,7 @@ export default function LoginPage() {
 
           <div className="login-footer-note">
             문의 · 오류 신고: AI Roll-up TFT
-            <br />© 2025 Hanwha Investment Securities
+            <br />© 2026 Hanwha Investment Securities
           </div>
         </div>
       </div>
