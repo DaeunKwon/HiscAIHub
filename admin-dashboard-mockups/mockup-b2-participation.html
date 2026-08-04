@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AI 공유 허브 · 관리자 대시보드 (안 B-2 · 참여율 중심 리디자인)</title>
+<style>
+  :root {
+    --org: #D96A28; --org-light: #FAF0E8; --org-muted: #B85820;
+    --bg: #F7F6F3; --surface: #FFFFFF; --surface-2: #F2F1ED;
+    --text-1: #2A2A28; --text-2: #6B6A65; --text-3: #9C9B95;
+    --danger: #C0392B; --danger-bg: #FBEAE7; --danger-fg: #B23A2E;
+    --ok: #3E7C59; --ok-bg: #E8F1EC;
+    --border: rgba(0,0,0,0.10); --border-strong: rgba(0,0,0,0.18);
+    --radius-md: 8px; --radius-lg: 12px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: var(--bg); }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; color: var(--text-1); }
+
+  .admin { display: grid; grid-template-columns: 232px 1fr; min-height: 100vh; }
+  .sidebar { background: var(--surface); border-right: 0.5px solid var(--border); display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; }
+  .side-logo { display: flex; align-items: center; gap: 8px; padding: 18px 20px; border-bottom: 0.5px solid var(--border); }
+  .logo-sq { width: 23px; height: 23px; border-radius: 5px; background: var(--org); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .logo-sq svg { width: 13px; height: 13px; }
+  .side-logo-txt { font-size: 14px; font-weight: 500; line-height: 1.3; }
+  .side-logo-txt .sub { font-size: 11px; color: var(--org-muted); font-weight: 500; }
+  .side-nav { padding: 12px 12px; flex: 1; overflow-y: auto; }
+  .side-sec { font-size: 10.5px; font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.05em; padding: 12px 10px 6px; }
+  .side-item { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: var(--radius-md); font-size: 13px; color: var(--text-2); cursor: default; }
+  .side-item svg { width: 16px; height: 16px; flex-shrink: 0; }
+  .side-item.on { background: var(--org-light); color: var(--org-muted); font-weight: 500; }
+  .side-badge { margin-left: auto; font-size: 10px; font-weight: 600; background: var(--danger); color: #fff; border-radius: 10px; padding: 1px 6px; min-width: 16px; text-align: center; }
+  .side-foot { border-top: 0.5px solid var(--border); padding: 12px; }
+  .admin-user { display: flex; align-items: center; gap: 8px; padding: 8px 10px; }
+  .admin-ava { width: 26px; height: 26px; border-radius: 50%; background: var(--org-light); color: var(--org-muted); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; }
+  .admin-user .nm { font-size: 12px; font-weight: 500; }
+  .admin-user .rl { font-size: 10.5px; color: var(--text-3); }
+
+  .main { min-width: 0; }
+  .topbar { background: var(--surface); border-bottom: 0.5px solid var(--border); height: 60px; display: flex; align-items: center; justify-content: space-between; padding: 0 28px; position: sticky; top: 0; z-index: 20; }
+  .topbar h1 { font-size: 17px; font-weight: 500; }
+  .topbar .sub { font-size: 12px; color: var(--text-3); margin-top: 2px; }
+  .seg { display: flex; border: 0.5px solid var(--border-strong); border-radius: var(--radius-md); overflow: hidden; }
+  .seg span { padding: 6px 12px; font-size: 12px; color: var(--text-2); cursor: default; }
+  .seg span.on { background: var(--org); color: #fff; }
+  .seg span + span { border-left: 0.5px solid var(--border-strong); }
+
+  .content { padding: 24px 28px 48px; max-width: 1220px; }
+  .mockup-tag { display: inline-flex; align-items: center; gap: 6px; background: var(--org-light); color: var(--org-muted); font-size: 11px; font-weight: 600; border-radius: 20px; padding: 4px 11px; margin-bottom: 16px; }
+
+  /* 상단: 전사 참여율(작게) + 미니 KPI 스트립(한 줄) */
+  .top-row { display: grid; grid-template-columns: 220px 1fr; gap: 14px; margin-bottom: 18px; }
+  .org-card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 16px; display: flex; align-items: center; gap: 14px; }
+  .ring-wrap { position: relative; width: 76px; height: 76px; flex-shrink: 0; }
+  .ring-wrap svg { transform: rotate(-90deg); }
+  .ring-num { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 17px; font-weight: 700; color: var(--org-muted); }
+  .org-txt .t { font-size: 11px; color: var(--text-3); }
+  .org-txt .v { font-size: 13px; font-weight: 600; margin-top: 2px; }
+  .org-txt .d { font-size: 10.5px; color: var(--ok); margin-top: 3px; }
+
+  .kpi-strip { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius-lg); display: flex; align-items: stretch; }
+  .kpi-strip .k { flex: 1; padding: 14px 18px; display: flex; flex-direction: column; justify-content: center; }
+  .kpi-strip .k + .k { border-left: 0.5px solid var(--border); }
+  .kpi-strip .k .n { font-size: 19px; font-weight: 700; }
+  .kpi-strip .k .n small { font-size: 11px; font-weight: 500; color: var(--text-3); }
+  .kpi-strip .k .l { font-size: 10.5px; color: var(--text-3); margin-top: 3px; }
+
+  /* 부서별 참여율 랭킹 — 메인 비주얼 */
+  .dept-panel { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 20px 22px; margin-bottom: 18px; }
+  .dept-panel-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 16px; }
+  .dept-panel-head h3 { font-size: 14px; font-weight: 700; }
+  .dept-panel-head span { font-size: 11px; color: var(--text-3); }
+
+  .dept-rank { display: flex; align-items: center; gap: 14px; padding: 10px 0; }
+  .dept-rank + .dept-rank { border-top: 0.5px solid var(--border); }
+  .dept-medal { width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: #fff; flex-shrink: 0; }
+  .dept-name { width: 110px; font-size: 13px; font-weight: 600; flex-shrink: 0; }
+  .dept-bar-track { flex: 1; height: 22px; background: var(--surface-2); border-radius: 6px; overflow: hidden; position: relative; }
+  .dept-bar-fill { height: 100%; border-radius: 6px; display: flex; align-items: center; justify-content: flex-end; padding-right: 8px; }
+  .dept-bar-fill .pct { font-size: 12px; font-weight: 700; color: #fff; }
+  .dept-count { width: 76px; text-align: right; font-size: 11px; color: var(--text-3); flex-shrink: 0; }
+
+  /* 하단: 개인 지표 3분할 (축소, 텍스트 최소화) */
+  .mini-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .mini-panel { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 14px 16px; }
+  .mini-head { font-size: 11.5px; font-weight: 700; color: var(--text-2); margin-bottom: 8px; display: flex; align-items: center; gap: 5px; }
+  .mini-head svg { width: 13px; height: 13px; }
+  .mini-row { display: flex; align-items: center; gap: 8px; padding: 5px 0; }
+  .mini-rank { width: 14px; font-size: 11px; font-weight: 700; color: var(--text-3); }
+  .mini-name { flex: 1; font-size: 12px; }
+  .mini-bar-track { width: 60px; height: 6px; background: var(--surface-2); border-radius: 4px; overflow: hidden; }
+  .mini-bar-fill { height: 100%; border-radius: 4px; }
+  .mini-val { width: 34px; text-align: right; font-size: 11px; color: var(--text-2); }
+</style>
+</head>
+<body>
+<div class="admin">
+  <aside class="sidebar">
+    <div class="side-logo">
+      <div class="logo-sq"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14"/></svg></div>
+      <div class="side-logo-txt">AI 공유 허브<br><span class="sub">관리자 콘솔</span></div>
+    </div>
+    <nav class="side-nav">
+      <div class="side-sec">운영</div>
+      <div class="side-item on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg> 대시보드</div>
+      <div class="side-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h5"/></svg> 콘텐츠 관리</div>
+      <div class="side-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" x2="4" y1="22" y2="15"/></svg> 신고 처리 <span class="side-badge">3</span></div>
+      <div class="side-sec">관리</div>
+      <div class="side-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> 사용자·권한</div>
+      <div class="side-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg> 사용량·비용</div>
+      <div class="side-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></svg> 감사 로그</div>
+      <div class="side-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg> 설정</div>
+    </nav>
+    <div class="side-foot">
+      <div class="admin-user"><div class="admin-ava">권</div><div><div class="nm">권다은</div><div class="rl">AI Roll-up TFT · 관리자</div></div></div>
+    </div>
+  </aside>
+
+  <div class="main">
+    <div class="topbar">
+      <div><h1>대시보드</h1><div class="sub">부서별 참여 현황을 한눈에 확인하세요.</div></div>
+      <div class="seg"><span>7일</span><span class="on">30일</span><span>90일</span></div>
+    </div>
+
+    <div class="content">
+      <span class="mockup-tag">목업 B-2 · 참여율 중심 리디자인</span>
+
+      <div class="top-row">
+        <div class="org-card">
+          <div class="ring-wrap">
+            <svg width="76" height="76" viewBox="0 0 76 76">
+              <circle cx="38" cy="38" r="32" fill="none" stroke="#F2F1ED" stroke-width="9" />
+              <circle cx="38" cy="38" r="32" fill="none" stroke="#D96A28" stroke-width="9" stroke-linecap="round" stroke-dasharray="201" stroke-dashoffset="52" />
+            </svg>
+            <div class="ring-num">74%</div>
+          </div>
+          <div class="org-txt"><div class="t">전사 참여율</div><div class="v">312 / 420명</div><div class="d">▲ +6%p</div></div>
+        </div>
+        <div class="kpi-strip">
+          <div class="k"><div class="n">27<small>건</small></div><div class="l">신규 등록</div></div>
+          <div class="k"><div class="n">2,481</div><div class="l">Claude 호출</div></div>
+          <div class="k"><div class="n">$142</div><div class="l">예상 비용 · 한도 36%</div></div>
+          <div class="k"><div class="n">3<small>건</small></div><div class="l">처리 대기 신고</div></div>
+        </div>
+      </div>
+
+      <div class="dept-panel">
+        <div class="dept-panel-head"><h3>부서별 참여율 순위</h3><span>활성 인원 / 전체 인원</span></div>
+
+        <div class="dept-rank">
+          <div class="dept-medal" style="background:#3F6C99">1</div>
+          <div class="dept-name">리서치센터</div>
+          <div class="dept-bar-track"><div class="dept-bar-fill" style="width:87%;background:#3F6C99"><span class="pct">87%</span></div></div>
+          <div class="dept-count">45 / 52명</div>
+        </div>
+        <div class="dept-rank">
+          <div class="dept-medal" style="background:#3E7C59">2</div>
+          <div class="dept-name">AI Roll-up TFT</div>
+          <div class="dept-bar-track"><div class="dept-bar-fill" style="width:75%;background:#3E7C59"><span class="pct">75%</span></div></div>
+          <div class="dept-count">9 / 12명</div>
+        </div>
+        <div class="dept-rank">
+          <div class="dept-medal" style="background:#8B5FA8">3</div>
+          <div class="dept-name">컴플라이언스</div>
+          <div class="dept-bar-track"><div class="dept-bar-fill" style="width:70%;background:#8B5FA8"><span class="pct">70%</span></div></div>
+          <div class="dept-count">28 / 40명</div>
+        </div>
+        <div class="dept-rank">
+          <div class="dept-medal" style="background:#B8860B">4</div>
+          <div class="dept-name">WM영업</div>
+          <div class="dept-bar-track"><div class="dept-bar-fill" style="width:62%;background:#B8860B"><span class="pct">62%</span></div></div>
+          <div class="dept-count">61 / 98명</div>
+        </div>
+        <div class="dept-rank">
+          <div class="dept-medal" style="background:#597081">5</div>
+          <div class="dept-name">해외주식</div>
+          <div class="dept-bar-track"><div class="dept-bar-fill" style="width:46%;background:#597081"><span class="pct">46%</span></div></div>
+          <div class="dept-count">33 / 71명</div>
+        </div>
+        <div class="dept-rank">
+          <div class="dept-medal" style="background:#9C9B95">6</div>
+          <div class="dept-name">전략기획</div>
+          <div class="dept-bar-track"><div class="dept-bar-fill" style="width:32%;background:#9C9B95"><span class="pct">32%</span></div></div>
+          <div class="dept-count">22 / 68명</div>
+        </div>
+      </div>
+
+      <div class="mini-grid">
+        <div class="mini-panel">
+          <div class="mini-head"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg> 로그인 TOP 5</div>
+          <div class="mini-row"><span class="mini-rank">1</span><span class="mini-name">권다은</span><div class="mini-bar-track"><div class="mini-bar-fill" style="width:100%;background:#3F6C99"></div></div><span class="mini-val">18회</span></div>
+          <div class="mini-row"><span class="mini-rank">2</span><span class="mini-name">박소영</span><div class="mini-bar-track"><div class="mini-bar-fill" style="width:83%;background:#3F6C99"></div></div><span class="mini-val">15회</span></div>
+          <div class="mini-row"><span class="mini-rank">3</span><span class="mini-name">한지우</span><div class="mini-bar-track"><div class="mini-bar-fill" style="width:78%;background:#3F6C99"></div></div><span class="mini-val">14회</span></div>
+          <div class="mini-row"><span class="mini-rank">4</span><span class="mini-name">최민준</span><div class="mini-bar-track"><div class="mini-bar-fill" style="width:67%;background:#3F6C99"></div></div><span class="mini-val">12회</span></div>
+          <div class="mini-row"><span class="mini-rank">5</span><span class="mini-name">강태양</span><div class="mini-bar-track"><div class="mini-bar-fill" style="width:61%;background:#3F6C99"></div></div><span class="mini-val">11회</span></div>
+        </div>
+        <div class="mini-panel">
+          <div class="mini-head"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg> 콘텐츠 등록 TOP 5</div>
+          <div class="mini-row"><span class="mini-rank">1</span><span class="mini-name">박소영</span><div class="mini-bar-track"><div class="mini-bar-fill" style="width:100%;background:#3E7C59"></div></div><span class="mini-val">8건</span></div>
+          <div class="mini-row"><span class="mini-rank">2</span><span class="mini-name">최민준</span><div class="mini-bar-track"><div class="mini-bar-fill" style="width:75%;background:#3E7C59"></div></div><span class="mini-val">6건</span></div>
+          <div class="mini-row"><span class="mini-rank">3</span><span class="mini-name">권다은</span><div class="mini-bar-track"><div class="mini-bar-fill" style="width:63%;background:#3E7C59"></div></div><span class="mini-val">5건</span></div>
+          <div class="mini-row"><span class="mini-rank">4</span><span class="mini-name">정하은</span><div class="mini-bar-track"><div class="mini-bar-fill" style="width:63%;background:#3E7C59"></div></div><span class="mini-val">5건</span></div>
+          <div class="mini-row"><span class="mini-rank">5</span><span class="mini-name">한지우</span><div class="mini-bar-track"><div class="mini-bar-fill" style="width:50%;background:#3E7C59"></div></div><span class="mini-val">4건</span></div>
+        </div>
+        <div class="mini-panel">
+          <div class="mini-head"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/></svg> Claude 사용량 TOP 5</div>
+          <div class="mini-row"><span class="mini-rank">1</span><span class="mini-name">박소영</span><div class="mini-bar-track"><div class="mini-bar-fill" style="width:100%;background:#B8860B"></div></div><span class="mini-val">248회</span></div>
+          <div class="mini-row"><span class="mini-rank">2</span><span class="mini-name">강태양</span><div class="mini-bar-track"><div class="mini-bar-fill" style="width:77%;background:#B8860B"></div></div><span class="mini-val">191회</span></div>
+          <div class="mini-row"><span class="mini-rank">3</span><span class="mini-name">최민준</span><div class="mini-bar-track"><div class="mini-bar-fill" style="width:63%;background:#B8860B"></div></div><span class="mini-val">156회</span></div>
+          <div class="mini-row"><span class="mini-rank">4</span><span class="mini-name">윤서연</span><div class="mini-bar-track"><div class="mini-bar-fill" style="width:54%;background:#B8860B"></div></div><span class="mini-val">133회</span></div>
+          <div class="mini-row"><span class="mini-rank">5</span><span class="mini-name">권다은</span><div class="mini-bar-track"><div class="mini-bar-fill" style="width:40%;background:#B8860B"></div></div><span class="mini-val">98회</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

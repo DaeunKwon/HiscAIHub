@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AI 공유 허브 · 관리자 대시보드 (안 C · 파워유저 + 부서 히트맵)</title>
+<style>
+  :root {
+    --org: #D96A28; --org-light: #FAF0E8; --org-muted: #B85820; --org-hover: #C25E22;
+    --bg: #F7F6F3; --surface: #FFFFFF; --surface-2: #F2F1ED;
+    --text-1: #2A2A28; --text-2: #6B6A65; --text-3: #9C9B95;
+    --danger: #C0392B; --danger-bg: #FBEAE7; --danger-fg: #B23A2E;
+    --ok: #3E7C59; --ok-bg: #E8F1EC;
+    --warn-bg: #F8EFD7; --warn-fg: #8A6D17;
+    --border: rgba(0,0,0,0.10); --border-strong: rgba(0,0,0,0.18);
+    --radius-md: 8px; --radius-lg: 12px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: var(--bg); }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; color: var(--text-1); }
+
+  .admin { display: grid; grid-template-columns: 232px 1fr; min-height: 100vh; }
+  .sidebar { background: var(--surface); border-right: 0.5px solid var(--border); display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; }
+  .side-logo { display: flex; align-items: center; gap: 8px; padding: 18px 20px; border-bottom: 0.5px solid var(--border); }
+  .logo-sq { width: 23px; height: 23px; border-radius: 5px; background: var(--org); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .logo-sq svg { width: 13px; height: 13px; }
+  .side-logo-txt { font-size: 14px; font-weight: 500; line-height: 1.3; }
+  .side-logo-txt .sub { font-size: 11px; color: var(--org-muted); font-weight: 500; }
+  .side-nav { padding: 12px 12px; flex: 1; overflow-y: auto; }
+  .side-sec { font-size: 10.5px; font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.05em; padding: 12px 10px 6px; }
+  .side-item { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: var(--radius-md); font-size: 13px; color: var(--text-2); cursor: default; position: relative; }
+  .side-item svg { width: 16px; height: 16px; flex-shrink: 0; }
+  .side-item.on { background: var(--org-light); color: var(--org-muted); font-weight: 500; }
+  .side-badge { margin-left: auto; font-size: 10px; font-weight: 600; background: var(--danger); color: #fff; border-radius: 10px; padding: 1px 6px; min-width: 16px; text-align: center; }
+  .side-foot { border-top: 0.5px solid var(--border); padding: 12px; }
+  .admin-user { display: flex; align-items: center; gap: 8px; padding: 8px 10px; }
+  .admin-ava { width: 26px; height: 26px; border-radius: 50%; background: var(--org-light); color: var(--org-muted); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; }
+  .admin-user .nm { font-size: 12px; font-weight: 500; }
+  .admin-user .rl { font-size: 10.5px; color: var(--text-3); }
+
+  .main { min-width: 0; }
+  .topbar { background: var(--surface); border-bottom: 0.5px solid var(--border); height: 60px; display: flex; align-items: center; justify-content: space-between; padding: 0 28px; position: sticky; top: 0; z-index: 20; }
+  .topbar h1 { font-size: 17px; font-weight: 500; }
+  .topbar .sub { font-size: 12px; color: var(--text-3); margin-top: 2px; }
+
+  .content { padding: 24px 28px 48px; max-width: 1220px; }
+  .mockup-tag { display: inline-flex; align-items: center; gap: 6px; background: var(--org-light); color: var(--org-muted); font-size: 11px; font-weight: 600; border-radius: 20px; padding: 4px 11px; margin-bottom: 16px; }
+
+  .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 20px; }
+  .stat { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 16px 18px; }
+  .stat .label { font-size: 12px; color: var(--text-2); display: flex; align-items: center; gap: 6px; margin-bottom: 10px; }
+  .stat .label svg { width: 14px; height: 14px; color: var(--text-3); }
+  .stat .num { font-size: 24px; font-weight: 600; letter-spacing: -0.01em; }
+  .stat .num .unit { font-size: 13px; font-weight: 500; color: var(--text-2); margin-left: 2px; }
+  .stat .delta { font-size: 11px; margin-top: 6px; color: var(--ok); }
+
+  /* 파워 유저 히어로 카드 */
+  .hero { display: flex; align-items: center; gap: 18px; background: linear-gradient(135deg, var(--org-light), var(--surface)); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 20px 24px; margin-bottom: 20px; }
+  .hero-ava { width: 56px; height: 56px; border-radius: 50%; background: var(--org); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 700; flex-shrink: 0; }
+  .hero-body { flex: 1; }
+  .hero-eyebrow { font-size: 11px; font-weight: 600; color: var(--org-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 3px; }
+  .hero-name { font-size: 16.5px; font-weight: 600; }
+  .hero-name .dept { font-size: 12px; font-weight: 400; color: var(--text-2); margin-left: 6px; }
+  .hero-tags { display: flex; gap: 6px; margin-top: 8px; }
+  .hero-tag { font-size: 11px; background: var(--surface); border: 0.5px solid var(--border); border-radius: 20px; padding: 3px 10px; color: var(--text-2); }
+  .hero-metrics { display: flex; gap: 24px; }
+  .hero-metric { text-align: center; }
+  .hero-metric .n { font-size: 18px; font-weight: 700; color: var(--org-muted); }
+  .hero-metric .l { font-size: 10.5px; color: var(--text-3); margin-top: 2px; }
+
+  /* 부서 히트맵 */
+  .panel { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 18px 20px; margin-bottom: 20px; }
+  .panel-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .panel-head h3 { font-size: 13.5px; font-weight: 600; }
+  .panel-head .note { font-size: 11px; color: var(--text-3); }
+
+  .heatmap { display: grid; grid-template-columns: 110px repeat(3, 1fr); gap: 6px; }
+  .hm-h { font-size: 10.5px; font-weight: 600; color: var(--text-3); text-align: center; padding-bottom: 6px; }
+  .hm-dept { font-size: 12px; color: var(--text-1); display: flex; align-items: center; }
+  .hm-cell { border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; height: 34px; color: var(--org-muted); }
+
+  /* 종합 랭킹 (점수 바 포함) */
+  table.tbl { width: 100%; border-collapse: collapse; background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+  .tbl thead th { text-align: left; font-size: 11px; font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.03em; padding: 11px 14px; border-bottom: 0.5px solid var(--border); background: var(--surface-2); }
+  .tbl td { padding: 11px 14px; font-size: 12.5px; border-bottom: 0.5px solid var(--border); vertical-align: middle; }
+  .tbl tbody tr:last-child td { border-bottom: none; }
+  .cell-title { font-weight: 500; }
+  .cell-sub { font-size: 11px; color: var(--text-3); margin-top: 1px; }
+  .score-cell { display: flex; align-items: center; gap: 8px; min-width: 140px; }
+  .score-bar-bg { flex: 1; height: 8px; background: var(--surface-2); border-radius: 5px; overflow: hidden; }
+  .score-bar-fill { height: 100%; background: var(--org); border-radius: 5px; }
+  .score-num { font-size: 12px; font-weight: 600; width: 26px; text-align: right; }
+  .lead-tag { font-size: 10px; font-weight: 500; border-radius: 4px; padding: 1px 6px; margin-right: 3px; display: inline-block; }
+  .lead-tag.login { background: #EAF0F6; color: #3F6C99; }
+  .lead-tag.post { background: var(--ok-bg); color: var(--ok); }
+  .lead-tag.usage { background: var(--org-light); color: var(--org-muted); }
+
+  h2.sec-sub { font-size: 13px; font-weight: 600; color: var(--text-2); margin: 4px 0 12px; }
+</style>
+</head>
+<body>
+<div class="admin">
+  <aside class="sidebar">
+    <div class="side-logo">
+      <div class="logo-sq"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14"/></svg></div>
+      <div class="side-logo-txt">AI 공유 허브<br><span class="sub">관리자 콘솔</span></div>
+    </div>
+    <nav class="side-nav">
+      <div class="side-sec">운영</div>
+      <div class="side-item on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg> 대시보드</div>
+      <div class="side-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h5"/></svg> 콘텐츠 관리</div>
+      <div class="side-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" x2="4" y1="22" y2="15"/></svg> 신고 처리 <span class="side-badge">3</span></div>
+      <div class="side-sec">관리</div>
+      <div class="side-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> 사용자·권한</div>
+      <div class="side-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg> 사용량·비용</div>
+      <div class="side-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></svg> 감사 로그</div>
+      <div class="side-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg> 설정</div>
+    </nav>
+    <div class="side-foot">
+      <div class="admin-user"><div class="admin-ava">권</div><div><div class="nm">권다은</div><div class="rl">AI Roll-up TFT · 관리자</div></div></div>
+    </div>
+  </aside>
+
+  <div class="main">
+    <div class="topbar">
+      <div><h1>대시보드</h1><div class="sub">서비스 운영 현황을 한눈에 확인하세요.</div></div>
+    </div>
+
+    <div class="content">
+      <span class="mockup-tag">목업 C · 파워유저 히어로 + 부서 히트맵 + 종합 점수</span>
+
+      <div class="stat-grid">
+        <div class="stat"><div class="label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg> 이번 달 활성 사용자</div><div class="num">312<span class="unit">/ 420명</span></div><div class="delta">참여율 74%</div></div>
+        <div class="stat"><div class="label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg> 신규 등록</div><div class="num">27<span class="unit">건</span></div><div class="delta">프롬프트 19 · 에이전트 8</div></div>
+        <div class="stat"><div class="label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/></svg> Claude 호출</div><div class="num">2,481</div><div class="delta">주간 대비 +38%</div></div>
+        <div class="stat"><div class="label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> 예상 비용</div><div class="num">$142</div><div class="delta">한도 $400의 36%</div></div>
+      </div>
+
+      <div class="hero">
+        <div class="hero-ava">박</div>
+        <div class="hero-body">
+          <div class="hero-eyebrow">이번 달 파워 유저</div>
+          <div class="hero-name">박소영 <span class="dept">리서치센터</span></div>
+          <div class="hero-tags"><span class="hero-tag">Claude 사용량 1위</span><span class="hero-tag">등록 1위</span><span class="hero-tag">로그인 2위</span></div>
+        </div>
+        <div class="hero-metrics">
+          <div class="hero-metric"><div class="n">15회</div><div class="l">로그인</div></div>
+          <div class="hero-metric"><div class="n">8건</div><div class="l">등록</div></div>
+          <div class="hero-metric"><div class="n">248회</div><div class="l">Claude 호출</div></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h3>부서별 활동 히트맵</h3><span class="note">진할수록 활동량이 많아요</span></div>
+        <div class="heatmap">
+          <div></div><div class="hm-h">로그인</div><div class="hm-h">등록</div><div class="hm-h">Claude 사용량</div>
+          <div class="hm-dept">리서치센터</div><div class="hm-cell" style="background:rgba(217,106,40,0.85);color:#fff">29</div><div class="hm-cell" style="background:rgba(217,106,40,0.9);color:#fff">12</div><div class="hm-cell" style="background:rgba(217,106,40,0.95);color:#fff">324</div>
+          <div class="hm-dept">AI Roll-up TFT</div><div class="hm-cell" style="background:rgba(217,106,40,0.7);color:#fff">18</div><div class="hm-cell" style="background:rgba(217,106,40,0.45)">5</div><div class="hm-cell" style="background:rgba(217,106,40,0.35)">98</div>
+          <div class="hm-dept">컴플라이언스</div><div class="hm-cell" style="background:rgba(217,106,40,0.55)">12</div><div class="hm-cell" style="background:rgba(217,106,40,0.55)">6</div><div class="hm-cell" style="background:rgba(217,106,40,0.55)">156</div>
+          <div class="hm-dept">WM영업</div><div class="hm-cell" style="background:rgba(217,106,40,0.45)">18</div><div class="hm-cell" style="background:rgba(217,106,40,0.5)">6</div><div class="hm-cell" style="background:rgba(217,106,40,0.75)">232</div>
+          <div class="hm-dept">해외주식</div><div class="hm-cell" style="background:rgba(217,106,40,0.3)">9</div><div class="hm-cell" style="background:rgba(217,106,40,0.25)">3</div><div class="hm-cell" style="background:rgba(217,106,40,0.5)">133</div>
+          <div class="hm-dept">전략기획</div><div class="hm-cell" style="background:rgba(217,106,40,0.25)">8</div><div class="hm-cell" style="background:rgba(217,106,40,0.45)">5</div><div class="hm-cell" style="background:rgba(217,106,40,0.2)">54</div>
+        </div>
+      </div>
+
+      <h2 class="sec-sub">임직원 종합 활동 랭킹</h2>
+      <table class="tbl">
+        <thead><tr><th style="width:44px">순위</th><th>이름</th><th>부서</th><th>주요 지표</th><th>종합 점수</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td><div class="cell-title">박소영</div><div class="cell-sub">리서치센터</div></td><td>리서치센터</td><td><span class="lead-tag usage">사용량 1위</span><span class="lead-tag post">등록 1위</span></td><td><div class="score-cell"><div class="score-bar-bg"><div class="score-bar-fill" style="width:96%"></div></div><span class="score-num">96</span></div></td></tr>
+          <tr><td>2</td><td><div class="cell-title">권다은</div><div class="cell-sub">AI Roll-up TFT</div></td><td>AI Roll-up TFT</td><td><span class="lead-tag login">로그인 1위</span></td><td><div class="score-cell"><div class="score-bar-bg"><div class="score-bar-fill" style="width:81%"></div></div><span class="score-num">81</span></div></td></tr>
+          <tr><td>3</td><td><div class="cell-title">최민준</div><div class="cell-sub">컴플라이언스</div></td><td>컴플라이언스</td><td><span class="lead-tag post">등록 2위</span></td><td><div class="score-cell"><div class="score-bar-bg"><div class="score-bar-fill" style="width:74%"></div></div><span class="score-num">74</span></div></td></tr>
+          <tr><td>4</td><td><div class="cell-title">강태양</div><div class="cell-sub">WM영업</div></td><td>WM영업</td><td><span class="lead-tag usage">사용량 2위</span></td><td><div class="score-cell"><div class="score-bar-bg"><div class="score-bar-fill" style="width:68%"></div></div><span class="score-num">68</span></div></td></tr>
+          <tr><td>5</td><td><div class="cell-title">한지우</div><div class="cell-sub">리서치센터</div></td><td>리서치센터</td><td><span class="lead-tag login">로그인 3위</span></td><td><div class="score-cell"><div class="score-bar-bg"><div class="score-bar-fill" style="width:61%"></div></div><span class="score-num">61</span></div></td></tr>
+          <tr><td>6</td><td><div class="cell-title">윤서연</div><div class="cell-sub">해외주식</div></td><td>해외주식</td><td>—</td><td><div class="score-cell"><div class="score-bar-bg"><div class="score-bar-fill" style="width:47%"></div></div><span class="score-num">47</span></div></td></tr>
+          <tr><td>7</td><td><div class="cell-title">정하은</div><div class="cell-sub">전략기획</div></td><td>전략기획</td><td>—</td><td><div class="score-cell"><div class="score-bar-bg"><div class="score-bar-fill" style="width:39%"></div></div><span class="score-num">39</span></div></td></tr>
+          <tr><td>8</td><td><div class="cell-title">이도현</div><div class="cell-sub">WM영업</div></td><td>WM영업</td><td>—</td><td><div class="score-cell"><div class="score-bar-bg"><div class="score-bar-fill" style="width:28%"></div></div><span class="score-num">28</span></div></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+</body>
+</html>

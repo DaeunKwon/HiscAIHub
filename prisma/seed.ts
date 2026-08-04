@@ -9,7 +9,7 @@ const CATEGORIES = ["리서치", "고객응대", "업무보고", "기획", "코�
 // 권다은 = 실제 로그인 테스트 계정(202502035@hanwha.com) 본인. 나머지는 admin 표의
 // {given}.{family}@hanwha.com 패턴을 따르는 시드 전용 동료 계정.
 const USERS = [
-  { key: "권다은", email: "202502035@hanwha.com", name: "권다은", dept: "AI Roll-up TFT", role: "admin" as const },
+  { key: "권다은", email: "202502035@hanwha.com", name: "권다은", dept: "AI Roll-up TFT", role: "user" as const },
   { key: "박소영", email: "soyoung.park@hanwha.com", name: "박소영", dept: "리서치센터", role: "mod" as const },
   { key: "최민준", email: "minjun.choi@hanwha.com", name: "최민준", dept: "컴플라이언스", role: "mod" as const },
   { key: "강태양", email: "taeyang.kang@hanwha.com", name: "강태양", dept: "WM영업", role: "user" as const },
