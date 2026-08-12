@@ -275,6 +275,176 @@ export async function setPerUserDailyLimit(limit: number): Promise<void> {
   });
 }
 
+// ---------- 부서·임직원 활용도 리더보드 ----------
+// "실행 횟수" = 프롬프트/에이전트의 "Claude로 실행" 버튼 클릭(AuditLog의 prompt_run/agent_run).
+// 실제로 Claude에서 끝까지 작업했는지는 알 수 없지만(실행은 claude.ai 딥링크로 각자 PC에서
+// 이뤄져 백엔드가 결과를 알 수 없음), 서비스가 관측 가능한 지표 중 "Claude 사용 시도"를
+// 가장 직접적으로 보여주는 신호라 이걸 채택한다. UsageLog(백엔드 생성 호출·비용)와는 별개 —
+// 그건 사용량·비용 탭에서 그대로 확인 가능.
+// 종합점수 가중치: 실행에 가장 큰 비중을 둔다.
+const SCORE_WEIGHTS = { runs: 50, registrations: 30, likes: 20 };
+const RUN_ACTIONS = ["prompt_run", "agent_run"] as const;
+
+type PeriodTotals = {
+  byDept: Map<string, { runs: number; registrations: number; likes: number; activeUsers: Set<string> }>;
+  byUser: Map<string, { name: string; dept: string; runs: number; registrations: number; likes: number }>;
+};
+
+function ensureDept(m: PeriodTotals["byDept"], dept: string) {
+  if (!m.has(dept)) m.set(dept, { runs: 0, registrations: 0, likes: 0, activeUsers: new Set() });
+  return m.get(dept)!;
+}
+function ensureUser(m: PeriodTotals["byUser"], id: string, name: string, dept: string) {
+  if (!m.has(id)) m.set(id, { name, dept, runs: 0, registrations: 0, likes: 0 });
+  return m.get(id)!;
+}
+
+async function collectPeriodTotals(gte: Date, lt?: Date): Promise<PeriodTotals> {
+  const range = lt ? { gte, lt } : { gte };
+  const [runLogs, prompts, agents, likes] = await Promise.all([
+    db.auditLog.findMany({ where: { createdAt: range, action: { in: [...RUN_ACTIONS] } }, include: { user: true } }),
+    db.prompt.findMany({ where: { createdAt: range }, include: { author: true } }),
+    db.agent.findMany({ where: { createdAt: range }, include: { author: true } }),
+    db.like.findMany({
+      where: { createdAt: range },
+      include: { prompt: { include: { author: true } }, agent: { include: { author: true } } },
+    }),
+  ]);
+
+  const byDept: PeriodTotals["byDept"] = new Map();
+  const byUser: PeriodTotals["byUser"] = new Map();
+
+  for (const log of runLogs) {
+    ensureDept(byDept, log.user.dept).runs += 1;
+    ensureDept(byDept, log.user.dept).activeUsers.add(log.userId);
+    ensureUser(byUser, log.userId, log.user.name, log.user.dept).runs += 1;
+  }
+  for (const p of prompts) {
+    ensureDept(byDept, p.author.dept).registrations += 1;
+    ensureUser(byUser, p.authorId, p.author.name, p.author.dept).registrations += 1;
+  }
+  for (const a of agents) {
+    ensureDept(byDept, a.author.dept).registrations += 1;
+    ensureUser(byUser, a.authorId, a.author.name, a.author.dept).registrations += 1;
+  }
+  for (const l of likes) {
+    const author = l.prompt?.author ?? l.agent?.author;
+    if (!author) continue;
+    ensureDept(byDept, author.dept).likes += 1;
+    ensureUser(byUser, author.id, author.name, author.dept).likes += 1;
+  }
+
+  return { byDept, byUser };
+}
+
+function scoreOf(
+  row: { runs: number; registrations: number; likes: number },
+  max: { runs: number; registrations: number; likes: number },
+): number {
+  const part = (v: number, m: number, w: number) => (m > 0 ? (v / m) * w : 0);
+  return Math.round(part(row.runs, max.runs, SCORE_WEIGHTS.runs) + part(row.registrations, max.registrations, SCORE_WEIGHTS.registrations) + part(row.likes, max.likes, SCORE_WEIGHTS.likes));
+}
+
+export type DeptLeaderboardRow = {
+  dept: string;
+  runs: number;
+  registrations: number;
+  likes: number;
+  activeUsers: number;
+  avgRunsPerUser: number;
+  score: number;
+  delta: number | null;
+};
+
+export type PersonLeaderboardRow = {
+  id: string;
+  name: string;
+  dept: string;
+  runs: number;
+  registrations: number;
+  likes: number;
+  score: number;
+  badges: ("runs" | "registrations" | "likes")[];
+  lastActive: string;
+};
+
+export async function getLeaderboardStats(days: number): Promise<{
+  depts: DeptLeaderboardRow[];
+  individuals: PersonLeaderboardRow[];
+  powerUser: PersonLeaderboardRow | null;
+}> {
+  const since = daysAgo(days);
+  const prevSince = daysAgo(days * 2);
+
+  const [current, previous, lastActiveById] = await Promise.all([
+    collectPeriodTotals(since),
+    collectPeriodTotals(prevSince, since),
+    db.user.findMany({ select: { id: true, lastActiveAt: true } }).then((rows) => new Map(rows.map((r) => [r.id, r.lastActiveAt]))),
+  ]);
+
+  const deptMax = { runs: 0, registrations: 0, likes: 0 };
+  for (const v of current.byDept.values()) {
+    deptMax.runs = Math.max(deptMax.runs, v.runs);
+    deptMax.registrations = Math.max(deptMax.registrations, v.registrations);
+    deptMax.likes = Math.max(deptMax.likes, v.likes);
+  }
+  const prevDeptMax = { runs: 0, registrations: 0, likes: 0 };
+  for (const v of previous.byDept.values()) {
+    prevDeptMax.runs = Math.max(prevDeptMax.runs, v.runs);
+    prevDeptMax.registrations = Math.max(prevDeptMax.registrations, v.registrations);
+    prevDeptMax.likes = Math.max(prevDeptMax.likes, v.likes);
+  }
+
+  const depts: DeptLeaderboardRow[] = Array.from(current.byDept.entries())
+    .map(([dept, v]) => {
+      const score = scoreOf(v, deptMax);
+      const prev = previous.byDept.get(dept);
+      const prevScore = prev ? scoreOf(prev, prevDeptMax) : 0;
+      const delta = prevScore > 0 ? Math.round(((score - prevScore) / prevScore) * 100) : null;
+      return {
+        dept,
+        runs: v.runs,
+        registrations: v.registrations,
+        likes: v.likes,
+        activeUsers: v.activeUsers.size,
+        avgRunsPerUser: v.activeUsers.size ? Math.round((v.runs / v.activeUsers.size) * 10) / 10 : 0,
+        score,
+        delta,
+      };
+    })
+    .sort((a, b) => b.score - a.score);
+
+  const userMax = { runs: 0, registrations: 0, likes: 0 };
+  for (const v of current.byUser.values()) {
+    userMax.runs = Math.max(userMax.runs, v.runs);
+    userMax.registrations = Math.max(userMax.registrations, v.registrations);
+    userMax.likes = Math.max(userMax.likes, v.likes);
+  }
+
+  const individuals: PersonLeaderboardRow[] = Array.from(current.byUser.entries())
+    .map(([id, v]) => {
+      const badges: PersonLeaderboardRow["badges"] = [];
+      if (userMax.runs > 0 && v.runs === userMax.runs) badges.push("runs");
+      if (userMax.registrations > 0 && v.registrations === userMax.registrations) badges.push("registrations");
+      if (userMax.likes > 0 && v.likes === userMax.likes) badges.push("likes");
+      const lastActiveAt = lastActiveById.get(id) ?? null;
+      return {
+        id,
+        name: v.name,
+        dept: v.dept,
+        runs: v.runs,
+        registrations: v.registrations,
+        likes: v.likes,
+        score: scoreOf(v, userMax),
+        badges,
+        lastActive: lastActiveAt ? fmtDateTime(lastActiveAt) : "-",
+      };
+    })
+    .sort((a, b) => b.score - a.score);
+
+  return { depts, individuals, powerUser: individuals[0] ?? null };
+}
+
 // ---------- 감사 로그 ----------
 const AUDIT_ACTION_LABEL: Record<string, string> = {
   prompt_generate: "프롬프트 만들기",

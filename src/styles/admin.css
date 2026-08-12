@@ -124,6 +124,32 @@
 .admin .brk .bn { flex: 1; }
 .admin .brk .bv { color: var(--text-2); font-size: 12px; }
 
+/* 리더보드 (부서·임직원 활용도) */
+.admin .lb-head { display: flex; align-items: center; justify-content: space-between; margin: 24px 0 14px; }
+.admin .range-toggle { display: flex; gap: 4px; background: var(--surface-2); border-radius: var(--radius-md); padding: 3px; }
+.admin .range-toggle button { border: none; background: none; font-family: inherit; font-size: 12px; color: var(--text-2); padding: 5px 10px; border-radius: 6px; cursor: pointer; }
+.admin .range-toggle button.on { background: var(--surface); color: var(--org-muted); font-weight: 500; box-shadow: 0 1px 2px rgba(0,0,0,0.06); }
+
+.admin .delta.up { color: var(--ok); }
+.admin .delta.down { color: var(--danger); }
+
+.admin .rank-badge { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 50%; font-size: 11px; font-weight: 600; color: #fff; }
+.admin .rank-badge.gold { background: #C9971F; }
+.admin .rank-badge.silver { background: #9AA0A6; }
+.admin .rank-badge.bronze { background: #B0714A; }
+
+/* 파워 유저 패널은 내용이 짧아, 옆 랭킹 패널 높이에 늘어나면 빈 여백이 크게 남는다.
+   리더보드 행에서만 각 패널이 자기 내용 높이를 갖도록 한다. */
+.admin .lb-cols { align-items: start; }
+
+.admin .power-card { display: flex; gap: 14px; align-items: flex-start; }
+.admin .power-ava { width: 44px; height: 44px; border-radius: 50%; background: var(--org-light); color: var(--org-muted); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600; flex-shrink: 0; }
+.admin .power-name { font-size: 14px; font-weight: 600; }
+.admin .power-dept { font-size: 11.5px; font-weight: 400; color: var(--text-3); margin-left: 4px; }
+.admin .power-badges { display: flex; flex-wrap: wrap; gap: 5px; margin: 8px 0; }
+.admin .power-metrics { display: flex; gap: 16px; font-size: 12.5px; color: var(--text-2); }
+.admin .power-metrics b { display: block; font-size: 16px; color: var(--text-1); font-weight: 600; }
+
 /* 설정 */
 .admin .set-block { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 18px 20px; margin-bottom: 16px; }
 .admin .set-block h3 { font-size: 13.5px; font-weight: 600; margin-bottom: 4px; }
