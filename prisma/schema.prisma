@@ -1,7 +1,7 @@
 // AI 공유 허브 — Prisma 스키마
-// 좋아요=공개(집계 캐시 필드 + 알림), 저장=비공개(집계·알림 없음, 존재 여부만 조회).
-// Prompt/Agent에 대한 좋아요·저장·댓글·신고는 각각 promptId/agentId 중 하나만 채우는
-// nullable dual-FK 패턴 사용 (둘 다 null이거나 둘 다 set되지 않는 것은 애플리케이션에서 보장).
+// 에이전트 단일 체계. 프롬프트·좋아요는 기획서 개정(2026-08-13)으로 제거했다.
+// 저장=비공개(집계·알림 없음, 존재 여부만 조회), 후기=공개(작성자에게 알림).
+// 부서 확산 지표는 AuditLog(action=agent_run, targetId=agentId, deptSnapshot)를 집계해 만든다.
 
 generator client {
   provider = "prisma-client-js"
@@ -36,27 +36,46 @@ enum ReportAction {
 }
 
 enum NotificationType {
-  like
-  comment
+  review
 }
 
 enum AuditAction {
-  prompt_generate
-  prompt_create
-  prompt_update
-  prompt_delete
-  prompt_run
-  prompt_copy
   agent_generate
   agent_create
   agent_update
   agent_delete
   agent_run
+  agent_copy
 }
 
 enum AuditStatus {
   success
   failure
+}
+
+// 에이전트 실행 방식. 목업 RUN_TYPES와 1:1.
+enum RunType {
+  schedule // 자동 실행 (스케줄)
+  event // 사내 시스템 연동
+  skill // 내 PC에 설치
+  app // 웹·메신저에서 사용
+}
+
+// 1회 처리 소요시간 구간(객관식). 등록·후기 모두 도입 전/후를 이 구간으로 받고,
+// 절감률은 구간 대표값(lib/time-band.ts의 MID)으로 계산한다.
+enum TimeBand {
+  under_10m // 10분 미만      · 대표값 5분
+  m10_30 // 10~30분        · 대표값 20분
+  m30_60 // 30분~1시간     · 대표값 45분
+  h1_3 // 1~3시간        · 대표값 120분
+  h3_8 // 3시간~1일      · 대표값 330분
+  over_1d // 1일 이상       · 대표값 600분
+}
+
+// 구독 현황 행의 집계 단위.
+enum SubScope {
+  division // 부문/실
+  team // 팀
 }
 
 model User {
@@ -69,16 +88,14 @@ model User {
   updatedAt    DateTime  @updatedAt
   lastActiveAt DateTime?
 
-  prompts              Prompt[]
-  agents               Agent[]
-  comments             Comment[]
-  likes                Like[]
-  saves                Save[]
-  reportsFiled         Report[]       @relation("Reporter")
-  auditLogs            AuditLog[]
-  usageLogs            UsageLog[]
-  notificationsGot     Notification[] @relation("Recipient")
-  notificationsCaused  Notification[] @relation("Actor")
+  agents              Agent[]
+  reviews             Review[]
+  saves               Save[]
+  reportsFiled        Report[]       @relation("Reporter")
+  auditLogs           AuditLog[]
+  usageLogs           UsageLog[]
+  notificationsGot    Notification[] @relation("Recipient")
+  notificationsCaused Notification[] @relation("Actor")
 
   @@index([email])
 }
@@ -89,24 +106,42 @@ model Category {
   order Int    @default(0)
 }
 
-model Prompt {
+model Agent {
   id          String        @id @default(cuid())
-  title       String
+  name        String
   description String
-  body        String        @db.Text
   category    String
   status      ContentStatus @default(published)
   official    Boolean       @default(false)
-  likeCount   Int           @default(0)
-  copyCount   Int           @default(0)
   runCount    Int           @default(0)
-  authorId    String
-  author      User          @relation(fields: [authorId], references: [id])
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
 
-  comments      Comment[]
-  likes         Like[]
+  // 실행 방식
+  runType RunType
+  trigger String // 언제 도는지 — "매일 오전 06:30 (평일)", "신규 티켓이 생성될 때마다"
+
+  // 무슨 일을 하는가
+  targetTask String   @db.Text // 이 에이전트가 맡는 업무 (도입 전 상황 포함)
+  tasks      String[] // 에이전트가 스스로 하는 일 (순서 있는 목록)
+  tools      String[] // 연결되는 도구·데이터
+
+  // 효과
+  effect     String    @db.Text
+  timeBefore TimeBand? // 도입 전 1회 소요시간
+  timeAfter  TimeBand? // 도입 후 1회 소요시간
+
+  // 사용 방법
+  prerequisites String[] // 미리 준비할 것
+  howToUse      String[] // 사용 순서
+  instructions  String   @db.Text // 에이전트 정의 (복사 대상)
+  linkUrl       String? // 사내 Git 저장소 등 바로가기
+
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  outputs       AgentOutput[]
+  reviews       Review[]
   saves         Save[]
   reports       Report[]
   notifications Notification[]
@@ -116,63 +151,34 @@ model Prompt {
   @@index([status])
 }
 
-model Agent {
-  id           String        @id @default(cuid())
-  name         String
-  description  String
-  instructions String        @db.Text
-  exampleTasks String[]
-  category     String
-  status       ContentStatus @default(published)
-  official     Boolean       @default(false)
-  likeCount    Int           @default(0)
-  runCount     Int           @default(0)
-  authorId     String
-  author       User          @relation(fields: [authorId], references: [id])
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+// 실제 산출물 스크린샷. "말로만 좋다"가 아니라 결과물을 보여주는 자리.
+model AgentOutput {
+  id      String @id @default(cuid())
+  agentId String
+  agent   Agent  @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  src     String @db.Text // 이미지 URL 또는 data URI
+  caption String
+  order   Int    @default(0)
 
-  comments      Comment[]
-  likes         Like[]
-  saves         Save[]
-  reports       Report[]
-  notifications Notification[]
-
-  @@index([authorId])
-  @@index([category])
-  @@index([status])
-}
-
-model Comment {
-  id        String   @id @default(cuid())
-  text      String
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  promptId  String?
-  prompt    Prompt?  @relation(fields: [promptId], references: [id], onDelete: Cascade)
-  agentId   String?
-  agent     Agent?   @relation(fields: [agentId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
-
-  @@index([promptId])
   @@index([agentId])
 }
 
-// 공개. 토글 시 Prompt/Agent.likeCount 갱신 + 대상 작성자에게 Notification 생성.
-model Like {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  promptId  String?
-  prompt    Prompt?  @relation(fields: [promptId], references: [id], onDelete: Cascade)
-  agentId   String?
-  agent     Agent?   @relation(fields: [agentId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
+// 활용 후기 — 단순 댓글이 아니라 "어디에 썼는지 + 효과 + 도입 전/후 소요시간".
+// 공개이며 작성자에게 알림이 간다. 남긴 시간 구간은 전사 절감 시간 집계에 반영된다.
+model Review {
+  id         String    @id @default(cuid())
+  agentId    String
+  agent      Agent     @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User      @relation(fields: [userId], references: [id])
+  useCase    String? // 어떤 업무에 썼는지
+  effect     String    @db.Text // 어떤 효과가 있었는지 (필수)
+  timeBefore TimeBand?
+  timeAfter  TimeBand?
+  createdAt  DateTime  @default(now())
 
-  @@unique([userId, promptId])
-  @@unique([userId, agentId])
-  @@index([promptId])
   @@index([agentId])
+  @@index([userId])
 }
 
 // 비공개: 집계·알림 없음. 존재 여부만 조회(사용자 본인만 열람).
@@ -180,15 +186,11 @@ model Save {
   id        String   @id @default(cuid())
   userId    String
   user      User     @relation(fields: [userId], references: [id])
-  promptId  String?
-  prompt    Prompt?  @relation(fields: [promptId], references: [id], onDelete: Cascade)
-  agentId   String?
-  agent     Agent?   @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  agentId   String
+  agent     Agent    @relation(fields: [agentId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
 
-  @@unique([userId, promptId])
   @@unique([userId, agentId])
-  @@index([promptId])
   @@index([agentId])
 }
 
@@ -199,11 +201,9 @@ model Notification {
   recipient   User             @relation("Recipient", fields: [recipientId], references: [id])
   actorId     String
   actor       User             @relation("Actor", fields: [actorId], references: [id])
-  promptId    String?
-  prompt      Prompt?          @relation(fields: [promptId], references: [id], onDelete: Cascade)
   agentId     String?
   agent       Agent?           @relation(fields: [agentId], references: [id], onDelete: Cascade)
-  commentText String?
+  reviewText  String?
   read        Boolean          @default(false)
   createdAt   DateTime         @default(now())
 
@@ -215,42 +215,44 @@ model Report {
   reason     String
   reporterId String
   reporter   User          @relation("Reporter", fields: [reporterId], references: [id])
-  promptId   String?
-  prompt     Prompt?       @relation(fields: [promptId], references: [id], onDelete: Cascade)
-  agentId    String?
-  agent      Agent?        @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  agentId    String
+  agent      Agent         @relation(fields: [agentId], references: [id], onDelete: Cascade)
   status     ReportStatus  @default(pending)
   action     ReportAction?
   createdAt  DateTime      @default(now())
   resolvedAt DateTime?
 
-  @@index([promptId])
   @@index([agentId])
   @@index([status])
 }
 
+// deptSnapshot = 행위 시점의 사용자 부서. 부서 이동·조직개편이 있어도 과거 확산 지표가
+// 흔들리지 않도록 User.dept를 조인하지 않고 그때 값을 그대로 박아 둔다.
 model AuditLog {
-  id          String      @id @default(cuid())
-  userId      String
-  user        User        @relation(fields: [userId], references: [id])
-  action      AuditAction
-  targetType  String?
-  targetId    String?
-  targetLabel String?
-  fileCount   Int         @default(0)
-  status      AuditStatus @default(success)
-  createdAt   DateTime    @default(now())
+  id           String      @id @default(cuid())
+  userId       String
+  user         User        @relation(fields: [userId], references: [id])
+  deptSnapshot String
+  action       AuditAction
+  targetType   String?
+  targetId     String? // agent_run/agent_copy의 경우 Agent.id — 팀 × 에이전트 확산 행렬의 원천
+  targetLabel  String?
+  fileCount    Int         @default(0)
+  status       AuditStatus @default(success)
+  createdAt    DateTime    @default(now())
 
   @@index([userId])
   @@index([createdAt])
+  @@index([action, createdAt])
+  @@index([targetId])
 }
 
-// Claude 호출량·비용 로그 (관리자 사용량·비용 집계 원천).
+// Claude 호출량·비용 로그 (사용량·비용 집계 원천).
 model UsageLog {
   id        String   @id @default(cuid())
   userId    String
   user      User     @relation(fields: [userId], references: [id])
-  feature   String // "prompt_generate" | "agent_generate"
+  feature   String // "agent_generate"
   tokensIn  Int      @default(0)
   tokensOut Int      @default(0)
   costUsd   Float    @default(0)
@@ -261,7 +263,41 @@ model UsageLog {
   @@index([feature])
 }
 
-// 관리자 설정 (카테고리 관리는 Category 모델 사용, 그 외 설정은 key-value).
+// ---------- 구독 현황 (외부 데이터 · 매월 수동 업데이트) ----------
+// 조직 역량개발비 지원 내역 기준. 플랫폼이 자동 수집하지 않으므로 월 스냅샷으로 적재하고,
+// 대시보드는 가장 최근 스냅샷을 읽는다. 과거 월도 남겨 추이를 볼 수 있게 한다.
+model SubscriptionSnapshot {
+  id     String @id @default(cuid())
+  period String @unique // "2026-05"
+  label  String // "26년 5월"
+  note   String @db.Text // 집계 기준·제외 대상·월 환산 방식
+
+  totalUsers      Int
+  totalAccounts   Int
+  totalCostManwon Int
+
+  rows      SubscriptionRow[]
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+}
+
+model SubscriptionRow {
+  id         String               @id @default(cuid())
+  snapshotId String
+  snapshot   SubscriptionSnapshot @relation(fields: [snapshotId], references: [id], onDelete: Cascade)
+  scope      SubScope
+  name       String // 부문/실 또는 팀 이름
+  division   String? // scope=team일 때 소속 부문
+  users      Int
+  costManwon Int
+  tools      Json // { "ChatGPT": 30, "Gemini": 22, ... }
+  order      Int                  @default(0)
+
+  @@unique([snapshotId, scope, name])
+  @@index([snapshotId])
+}
+
+// 운영 설정 (카테고리는 Category 모델, 그 외는 key-value).
 model Setting {
   key   String @id
   value Json
