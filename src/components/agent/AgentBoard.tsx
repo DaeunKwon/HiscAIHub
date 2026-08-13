@@ -4,12 +4,12 @@ import { useEffect, useState } from "react";
 import type { AgentDTO } from "@/lib/agents";
 import "@/styles/agent-board.css";
 import AgentDetailModal from "./AgentDetailModal";
-import AgentFormModal, { type AgentDraft } from "./AgentFormModal";
+import AgentFormModal, { type AgentDraft, type AgentFormData } from "./AgentFormModal";
 import AgentCreateModal from "./AgentCreateModal";
 import { launchClaude } from "@/lib/launch-claude";
+import { RUN_ACTION } from "@/lib/categories";
 import {
   BotIcon,
-  HeartIcon,
   ZapIcon,
   CommentIcon,
   BookmarkIcon,
@@ -17,6 +17,13 @@ import {
   EditIcon,
   TrashIcon,
 } from "@/components/icons";
+
+export type ReviewInput = {
+  useCase: string;
+  effect: string;
+  timeBefore: string;
+  timeAfter: string;
+};
 
 export default function AgentBoard({
   initialAgents,
@@ -59,13 +66,6 @@ export default function AgentBoard({
     (showToast as unknown as { _t?: number })._t = window.setTimeout(() => setToast(""), 2200);
   }
 
-  async function toggleLike(id: string) {
-    const res = await fetch(`/api/agents/${id}/like`, { method: "POST" });
-    if (!res.ok) return;
-    const data = await res.json();
-    setAgents((prev) => prev.map((a) => (a.id === id ? { ...a, liked: data.liked, likes: data.likes } : a)));
-  }
-
   async function toggleSave(id: string) {
     const res = await fetch(`/api/agents/${id}/save`, { method: "POST" });
     if (!res.ok) return;
@@ -74,39 +74,42 @@ export default function AgentBoard({
     showToast(data.saved ? "저장했어요" : "저장을 취소했어요");
   }
 
+  // 정의 복사는 실행과 구분해 기록한다 — 실행 카운터는 올리지 않는다.
   async function copyInstructions(a: AgentDTO) {
     try {
       await navigator.clipboard.writeText(a.instructions);
     } catch {}
-    showToast("지침이 복사됐어요");
+    fetch(`/api/agents/${a.id}/copy`, { method: "POST" }).catch(() => {});
+    showToast("에이전트 정의를 복사했어요");
   }
 
-  // 에이전트도 프롬프트와 동일하게 Claude(데스크톱 있으면 데스크톱, 없으면 웹)로 실행.
-  // 파일은 열린 Claude 창에서 각자 직접 첨부.
+  // "가져다 쓰기" — 실행 방식에 따라 안내가 다르지만, 어느 쪽이든 실제 실행은 각자 환경에서 이뤄진다.
+  // 여기서는 실행 카운터와 감사 로그(부서 확산 지표의 원천)만 남긴다.
   async function runAgent(a: AgentDTO) {
-    const where = await launchClaude(a.instructions);
+    if (a.runType === "skill" || a.runType === "schedule") {
+      await launchClaude(a.instructions);
+    } else if (a.linkUrl) {
+      window.open(a.linkUrl, "_blank", "noopener");
+    }
     const res = await fetch(`/api/agents/${a.id}/run`, { method: "POST" });
     if (res.ok) {
       const data = await res.json();
       setAgents((prev) => prev.map((x) => (x.id === a.id ? { ...x, runs: data.runs } : x)));
     }
-    showToast(
-      where === "desktop"
-        ? "Claude 데스크톱을 열었어요 (지침 자동 입력됨). 필요한 파일은 그 창에서 첨부해주세요."
-        : "Claude 새 탭을 열었어요 (지침 자동 입력됨). 필요한 파일은 그 창에서 첨부해주세요."
-    );
+    showToast(RUN_ACTION[a.runType].toast);
   }
 
-  async function submitComment(id: string, text: string): Promise<boolean> {
-    const res = await fetch(`/api/agents/${id}/comments`, {
+  async function submitReview(id: string, input: ReviewInput): Promise<string | null> {
+    const res = await fetch(`/api/agents/${id}/reviews`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text }),
+      body: JSON.stringify(input),
     });
-    if (!res.ok) return false;
     const data = await res.json();
-    setAgents((prev) => prev.map((a) => (a.id === id ? { ...a, comments: [...a.comments, data.comment] } : a)));
-    return true;
+    if (!res.ok) return data.error ?? "후기 등록에 실패했어요.";
+    setAgents((prev) => prev.map((a) => (a.id === id ? { ...a, reviews: [...a.reviews, data.review] } : a)));
+    showToast("활용 후기를 등록했어요. 작성자에게 알림이 갑니다.");
+    return null;
   }
 
   async function deleteAgent(id: string) {
@@ -130,48 +133,36 @@ export default function AgentBoard({
     setDraft(null);
   }
 
-  async function submitForm(data: { cat: string; name: string; desc: string; instructions: string; tasks: string[] }): Promise<string | null> {
-    if (editing) {
-      const res = await fetch(`/api/agents/${editing.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-      if (!res.ok) {
-        const e = await res.json();
-        return e.error ?? "저장에 실패했어요.";
-      }
-      const { agent } = await res.json();
-      setAgents((prev) => prev.map((a) => (a.id === editing.id ? agent : a)));
-    } else {
-      const res = await fetch(`/api/agents`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-      if (!res.ok) {
-        const e = await res.json();
-        return e.error ?? "등록에 실패했어요.";
-      }
-      const { agent } = await res.json();
-      setAgents((prev) => [agent, ...prev]);
+  async function submitForm(data: AgentFormData): Promise<string | null> {
+    const url = editing ? `/api/agents/${editing.id}` : "/api/agents";
+    const res = await fetch(url, {
+      method: editing ? "PATCH" : "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const e = await res.json();
+      return e.error ?? (editing ? "저장에 실패했어요." : "등록에 실패했어요.");
     }
+    const { agent } = await res.json();
+    setAgents((prev) => (editing ? prev.map((a) => (a.id === editing.id ? agent : a)) : [agent, ...prev]));
     closeForm();
     return null;
   }
 
-  // 탭·검색 필터링 (데모 renderView agentMode 분기 이식)
+  // 탭·검색 필터링
   const f = search.trim().toLowerCase();
   let list = agents.slice();
   let mine = false;
   let emptyMsg = "검색 결과가 없어요.";
 
-  if (tab === "a-popular") {
-    list = list.slice().sort((a, b) => b.runs + b.likes - (a.runs + a.likes));
-  } else if (tab === "a-saved") {
+  if (tab === "popular") {
+    // 인기 = 많이 쓰이고 후기가 많이 달린 것. 좋아요를 없앤 자리를 후기 수가 대신한다.
+    list = list.slice().sort((a, b) => b.runs + b.reviews.length * 5 - (a.runs + a.reviews.length * 5));
+  } else if (tab === "saved") {
     list = list.filter((a) => a.saved);
     if (!f) emptyMsg = "아직 저장한 에이전트가 없어요. 마음에 드는 에이전트를 저장해두면 여기 모여요.";
-  } else if (tab === "a-mine") {
+  } else if (tab === "mine") {
     list = list.filter((a) => a.mine);
     mine = true;
     if (!f) emptyMsg = "아직 만든 에이전트가 없어요. 오른쪽 위 '에이전트 등록'으로 첫 에이전트를 만들어보세요.";
@@ -211,16 +202,24 @@ export default function AgentBoard({
       <AgentDetailModal
         agent={detail}
         onClose={() => setDetailId(null)}
-        onToggleLike={toggleLike}
         onToggleSave={toggleSave}
         onCopyInstructions={copyInstructions}
-        onComment={submitComment}
-        onEdit={(a) => { setDetailId(null); openEdit(a); }}
+        onReview={submitReview}
+        onEdit={(a) => {
+          setDetailId(null);
+          openEdit(a);
+        }}
         onDelete={(id) => deleteAgent(id)}
         onRun={runAgent}
       />
 
-      <AgentFormModal open={registerOpen} editing={editing} draft={editing ? null : draft} onClose={closeForm} onSubmit={submitForm} />
+      <AgentFormModal
+        open={registerOpen}
+        editing={editing}
+        draft={editing ? null : draft}
+        onClose={closeForm}
+        onSubmit={submitForm}
+      />
 
       <AgentCreateModal
         open={createOpen}
@@ -294,8 +293,7 @@ function AgentCard({
         </div>
         <div className="mini-acts">
           <div className="mini-act"><ZapIcon size={13} /> {a.runs}</div>
-          <div className="mini-act"><HeartIcon size={13} /> {a.likes}</div>
-          <div className="mini-act"><CommentIcon size={13} /> {a.comments.length}</div>
+          <div className="mini-act"><CommentIcon size={13} /> {a.reviews.length}</div>
         </div>
       </div>
       {mine ? (
