@@ -15,16 +15,15 @@ export async function PATCH(req: Request) {
   if (!admin) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
   const body = await req.json();
-  const type = body.type === "agent" ? "agent" : "prompt";
   const id = String(body.id ?? "");
   const action = body.action === "toggle-hide" ? "toggle-hide" : "toggle-official";
   if (!id) return NextResponse.json({ error: "id가 필요합니다." }, { status: 400 });
 
   if (action === "toggle-official") {
-    const official = await toggleContentOfficial(type, id);
+    const official = await toggleContentOfficial(id);
     return NextResponse.json({ official });
   }
-  const status = await toggleContentHidden(type, id);
+  const status = await toggleContentHidden(id);
   return NextResponse.json({ status });
 }
 
@@ -33,10 +32,9 @@ export async function DELETE(req: Request) {
   if (!admin) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
   const body = await req.json();
-  const type = body.type === "agent" ? "agent" : "prompt";
   const id = String(body.id ?? "");
   if (!id) return NextResponse.json({ error: "id가 필요합니다." }, { status: 400 });
 
-  await deleteContent(type, id);
+  await deleteContent(id);
   return NextResponse.json({ ok: true });
 }

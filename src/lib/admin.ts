@@ -1,4 +1,7 @@
 // 관리자 콘솔 데이터 계층 — DB ↔ 관리자 콘솔 DTO 변환.
+//
+// 대시보드·리더보드는 기획서 개정(2026-08-13)으로 전 임직원 공개 영역이 되어 lib/dashboard.ts로 옮겼다.
+// 여기 남은 것은 관리자만 하는 일(콘텐츠 관리·신고 처리·사용자 권한·사용량 비용·설정)뿐이다.
 import { db } from "./db";
 
 function fmtDateTime(d: Date): string {
@@ -13,65 +16,9 @@ function daysAgo(n: number): Date {
   return d;
 }
 
-// ---------- 대시보드 ----------
-export async function getDashboardStats() {
-  const weekAgo = daysAgo(7);
-  const prevWeekAgo = daysAgo(14);
-
-  const [activeUsersThisWeek, activeUsersPrevWeek, newPrompts, newAgents, callsThisWeek, callsPrevWeek, costAgg] =
-    await Promise.all([
-      db.usageLog.findMany({ where: { createdAt: { gte: weekAgo } }, distinct: ["userId"], select: { userId: true } }),
-      db.usageLog.findMany({ where: { createdAt: { gte: prevWeekAgo, lt: weekAgo } }, distinct: ["userId"], select: { userId: true } }),
-      db.prompt.count({ where: { createdAt: { gte: weekAgo } } }),
-      db.agent.count({ where: { createdAt: { gte: weekAgo } } }),
-      db.usageLog.count({ where: { createdAt: { gte: weekAgo } } }),
-      db.usageLog.count({ where: { createdAt: { gte: prevWeekAgo, lt: weekAgo } } }),
-      db.usageLog.aggregate({ where: { createdAt: { gte: weekAgo } }, _sum: { costUsd: true } }),
-    ]);
-
-  const pendingReports = await db.report.findMany({
-    where: { status: "pending" },
-    include: { prompt: true, agent: true },
-    orderBy: { createdAt: "desc" },
-    take: 3,
-  });
-
-  const topPrompts = await db.prompt.findMany({ orderBy: { runCount: "desc" }, take: 5, select: { id: true, title: true, runCount: true } });
-  const topAgents = await db.agent.findMany({ orderBy: { runCount: "desc" }, take: 5, select: { id: true, name: true, runCount: true } });
-  const topContent = [
-    ...topPrompts.map((p) => ({ type: "프롬프트" as const, title: p.title, runs: p.runCount })),
-    ...topAgents.map((a) => ({ type: "에이전트" as const, title: a.name, runs: a.runCount })),
-  ]
-    .sort((a, b) => b.runs - a.runs)
-    .slice(0, 5);
-
-  const activeUsersDelta = activeUsersPrevWeek.length
-    ? Math.round(((activeUsersThisWeek.length - activeUsersPrevWeek.length) / activeUsersPrevWeek.length) * 100)
-    : null;
-  const callsDelta = callsPrevWeek ? Math.round(((callsThisWeek - callsPrevWeek) / callsPrevWeek) * 100) : null;
-
-  return {
-    activeUsers: activeUsersThisWeek.length,
-    activeUsersDelta,
-    newContent: { prompts: newPrompts, agents: newAgents, total: newPrompts + newAgents },
-    callsThisWeek,
-    callsDelta,
-    costThisWeekUsd: costAgg._sum.costUsd ?? 0,
-    pendingReports: pendingReports.map((r) => ({
-      id: r.id,
-      type: r.promptId ? ("프롬프트" as const) : ("에이전트" as const),
-      title: r.prompt?.title ?? r.agent?.name ?? "",
-      reason: r.reason,
-    })),
-    pendingReportCount: await db.report.count({ where: { status: "pending" } }),
-    topContent,
-  };
-}
-
 // ---------- 콘텐츠 관리 ----------
 export type ContentRow = {
   id: string;
-  type: "프롬프트" | "에이전트";
   title: string;
   author: string;
   dept: string;
@@ -83,75 +30,49 @@ export type ContentRow = {
 const STATUS_MAP = { published: "pub", hidden: "hidden", flagged: "flag" } as const;
 
 export async function listContent(): Promise<ContentRow[]> {
-  const [prompts, agents] = await Promise.all([
-    db.prompt.findMany({ include: { author: true, _count: { select: { likes: true } } }, orderBy: { createdAt: "desc" } }),
-    db.agent.findMany({ include: { author: true, _count: { select: { likes: true } } }, orderBy: { createdAt: "desc" } }),
-  ]);
-  const promptRows: ContentRow[] = prompts.map((p) => ({
-    id: p.id,
-    type: "프롬프트",
-    title: p.title,
-    author: p.author.name,
-    dept: p.author.dept,
-    metric: `실행 ${p.runCount} · ♥ ${p.likeCount}`,
-    status: STATUS_MAP[p.status],
-    official: p.official,
-  }));
-  const agentRows: ContentRow[] = agents.map((a) => ({
+  const agents = await db.agent.findMany({
+    include: { author: true, _count: { select: { reviews: true } } },
+    orderBy: { createdAt: "desc" },
+  });
+  return agents.map((a) => ({
     id: a.id,
-    type: "에이전트",
     title: a.name,
     author: a.author.name,
     dept: a.author.dept,
-    metric: `실행 ${a.runCount} · ♥ ${a.likeCount}`,
+    metric: `실행 ${a.runCount} · 후기 ${a._count.reviews}`,
     status: STATUS_MAP[a.status],
     official: a.official,
   }));
-  return [...promptRows, ...agentRows].sort((a, b) => (a.title < b.title ? -1 : 1));
 }
 
-export async function toggleContentOfficial(type: "prompt" | "agent", id: string): Promise<boolean> {
-  if (type === "prompt") {
-    const p = await db.prompt.findUniqueOrThrow({ where: { id } });
-    const updated = await db.prompt.update({ where: { id }, data: { official: !p.official } });
-    return updated.official;
-  }
+export async function toggleContentOfficial(id: string): Promise<boolean> {
   const a = await db.agent.findUniqueOrThrow({ where: { id } });
   const updated = await db.agent.update({ where: { id }, data: { official: !a.official } });
   return updated.official;
 }
 
-export async function toggleContentHidden(type: "prompt" | "agent", id: string): Promise<"pub" | "hidden"> {
-  if (type === "prompt") {
-    const p = await db.prompt.findUniqueOrThrow({ where: { id } });
-    const next = p.status === "hidden" ? "published" : "hidden";
-    await db.prompt.update({ where: { id }, data: { status: next } });
-    return STATUS_MAP[next] as "pub" | "hidden";
-  }
+export async function toggleContentHidden(id: string): Promise<"pub" | "hidden"> {
   const a = await db.agent.findUniqueOrThrow({ where: { id } });
   const next = a.status === "hidden" ? "published" : "hidden";
   await db.agent.update({ where: { id }, data: { status: next } });
   return STATUS_MAP[next] as "pub" | "hidden";
 }
 
-export async function deleteContent(type: "prompt" | "agent", id: string): Promise<void> {
-  if (type === "prompt") await db.prompt.delete({ where: { id } });
-  else await db.agent.delete({ where: { id } });
+export async function deleteContent(id: string): Promise<void> {
+  await db.agent.delete({ where: { id } });
 }
 
 // ---------- 신고 처리 ----------
 export async function listPendingReports() {
   const reports = await db.report.findMany({
     where: { status: "pending" },
-    include: { prompt: true, agent: true },
+    include: { agent: true },
     orderBy: { createdAt: "asc" },
   });
   return reports.map((r) => ({
     id: r.id,
-    type: r.promptId ? ("프롬프트" as const) : ("에이전트" as const),
-    contentType: r.promptId ? ("prompt" as const) : ("agent" as const),
-    contentId: (r.promptId ?? r.agentId) as string,
-    title: r.prompt?.title ?? r.agent?.name ?? "(삭제된 콘텐츠)",
+    contentId: r.agentId,
+    title: r.agent.name,
     reason: r.reason,
     reporterCount: 1,
     date: fmtDateTime(r.createdAt),
@@ -162,15 +83,13 @@ export async function resolveReport(reportId: string, action: "keep" | "hide" | 
   const report = await db.report.findUniqueOrThrow({ where: { id: reportId } });
 
   if (action === "delete") {
-    if (report.promptId) await db.prompt.delete({ where: { id: report.promptId } });
-    else if (report.agentId) await db.agent.delete({ where: { id: report.agentId } });
     // Report는 콘텐츠 삭제 시 cascade로 함께 삭제됨
+    await db.agent.delete({ where: { id: report.agentId } });
     return;
   }
 
   if (action === "hide") {
-    if (report.promptId) await db.prompt.update({ where: { id: report.promptId }, data: { status: "hidden" } });
-    else if (report.agentId) await db.agent.update({ where: { id: report.agentId }, data: { status: "hidden" } });
+    await db.agent.update({ where: { id: report.agentId }, data: { status: "hidden" } });
   }
 
   await db.report.update({ where: { id: reportId }, data: { status: "resolved", action, resolvedAt: new Date() } });
@@ -179,7 +98,7 @@ export async function resolveReport(reportId: string, action: "keep" | "hide" | 
 // ---------- 사용자·권한 ----------
 export async function listUsersAdmin() {
   const users = await db.user.findMany({
-    include: { _count: { select: { prompts: true, agents: true } } },
+    include: { _count: { select: { agents: true } } },
     orderBy: { createdAt: "asc" },
   });
   return users.map((u) => ({
@@ -187,7 +106,7 @@ export async function listUsersAdmin() {
     name: u.name,
     dept: u.dept,
     email: u.email,
-    posts: u._count.prompts + u._count.agents,
+    posts: u._count.agents,
     last: u.lastActiveAt ? fmtDateTime(u.lastActiveAt) : "-",
     role: u.role,
   }));
@@ -236,11 +155,7 @@ export async function getUsageStats() {
     entry.cost += log.costUsd;
     byFeature.set(log.feature, entry);
   }
-  const FEATURE_LABEL: Record<string, string> = {
-    prompt_generate: "프롬프트 만들기",
-    agent_generate: "에이전트 만들기",
-    agent_run: "에이전트 실행",
-  };
+  const FEATURE_LABEL: Record<string, string> = { agent_generate: "에이전트 만들기" };
   const featureBreakdown = Array.from(byFeature.entries()).map(([feature, v]) => ({
     feature,
     label: FEATURE_LABEL[feature] ?? feature,
@@ -275,189 +190,14 @@ export async function setPerUserDailyLimit(limit: number): Promise<void> {
   });
 }
 
-// ---------- 부서·임직원 활용도 리더보드 ----------
-// "실행 횟수" = 프롬프트/에이전트의 "Claude로 실행" 버튼 클릭(AuditLog의 prompt_run/agent_run).
-// 실제로 Claude에서 끝까지 작업했는지는 알 수 없지만(실행은 claude.ai 딥링크로 각자 PC에서
-// 이뤄져 백엔드가 결과를 알 수 없음), 서비스가 관측 가능한 지표 중 "Claude 사용 시도"를
-// 가장 직접적으로 보여주는 신호라 이걸 채택한다. UsageLog(백엔드 생성 호출·비용)와는 별개 —
-// 그건 사용량·비용 탭에서 그대로 확인 가능.
-// 종합점수 가중치: 실행에 가장 큰 비중을 둔다.
-const SCORE_WEIGHTS = { runs: 50, registrations: 30, likes: 20 };
-const RUN_ACTIONS = ["prompt_run", "agent_run"] as const;
-
-type PeriodTotals = {
-  byDept: Map<string, { runs: number; registrations: number; likes: number; activeUsers: Set<string> }>;
-  byUser: Map<string, { name: string; dept: string; runs: number; registrations: number; likes: number }>;
-};
-
-function ensureDept(m: PeriodTotals["byDept"], dept: string) {
-  if (!m.has(dept)) m.set(dept, { runs: 0, registrations: 0, likes: 0, activeUsers: new Set() });
-  return m.get(dept)!;
-}
-function ensureUser(m: PeriodTotals["byUser"], id: string, name: string, dept: string) {
-  if (!m.has(id)) m.set(id, { name, dept, runs: 0, registrations: 0, likes: 0 });
-  return m.get(id)!;
-}
-
-async function collectPeriodTotals(gte: Date, lt?: Date): Promise<PeriodTotals> {
-  const range = lt ? { gte, lt } : { gte };
-  const [runLogs, prompts, agents, likes] = await Promise.all([
-    db.auditLog.findMany({ where: { createdAt: range, action: { in: [...RUN_ACTIONS] } }, include: { user: true } }),
-    db.prompt.findMany({ where: { createdAt: range }, include: { author: true } }),
-    db.agent.findMany({ where: { createdAt: range }, include: { author: true } }),
-    db.like.findMany({
-      where: { createdAt: range },
-      include: { prompt: { include: { author: true } }, agent: { include: { author: true } } },
-    }),
-  ]);
-
-  const byDept: PeriodTotals["byDept"] = new Map();
-  const byUser: PeriodTotals["byUser"] = new Map();
-
-  for (const log of runLogs) {
-    ensureDept(byDept, log.user.dept).runs += 1;
-    ensureDept(byDept, log.user.dept).activeUsers.add(log.userId);
-    ensureUser(byUser, log.userId, log.user.name, log.user.dept).runs += 1;
-  }
-  for (const p of prompts) {
-    ensureDept(byDept, p.author.dept).registrations += 1;
-    ensureUser(byUser, p.authorId, p.author.name, p.author.dept).registrations += 1;
-  }
-  for (const a of agents) {
-    ensureDept(byDept, a.author.dept).registrations += 1;
-    ensureUser(byUser, a.authorId, a.author.name, a.author.dept).registrations += 1;
-  }
-  for (const l of likes) {
-    const author = l.prompt?.author ?? l.agent?.author;
-    if (!author) continue;
-    ensureDept(byDept, author.dept).likes += 1;
-    ensureUser(byUser, author.id, author.name, author.dept).likes += 1;
-  }
-
-  return { byDept, byUser };
-}
-
-function scoreOf(
-  row: { runs: number; registrations: number; likes: number },
-  max: { runs: number; registrations: number; likes: number },
-): number {
-  const part = (v: number, m: number, w: number) => (m > 0 ? (v / m) * w : 0);
-  return Math.round(part(row.runs, max.runs, SCORE_WEIGHTS.runs) + part(row.registrations, max.registrations, SCORE_WEIGHTS.registrations) + part(row.likes, max.likes, SCORE_WEIGHTS.likes));
-}
-
-export type DeptLeaderboardRow = {
-  dept: string;
-  runs: number;
-  registrations: number;
-  likes: number;
-  activeUsers: number;
-  avgRunsPerUser: number;
-  score: number;
-  delta: number | null;
-};
-
-export type PersonLeaderboardRow = {
-  id: string;
-  name: string;
-  dept: string;
-  runs: number;
-  registrations: number;
-  likes: number;
-  score: number;
-  badges: ("runs" | "registrations" | "likes")[];
-  lastActive: string;
-};
-
-export async function getLeaderboardStats(days: number): Promise<{
-  depts: DeptLeaderboardRow[];
-  individuals: PersonLeaderboardRow[];
-  powerUser: PersonLeaderboardRow | null;
-}> {
-  const since = daysAgo(days);
-  const prevSince = daysAgo(days * 2);
-
-  const [current, previous, lastActiveById] = await Promise.all([
-    collectPeriodTotals(since),
-    collectPeriodTotals(prevSince, since),
-    db.user.findMany({ select: { id: true, lastActiveAt: true } }).then((rows) => new Map(rows.map((r) => [r.id, r.lastActiveAt]))),
-  ]);
-
-  const deptMax = { runs: 0, registrations: 0, likes: 0 };
-  for (const v of current.byDept.values()) {
-    deptMax.runs = Math.max(deptMax.runs, v.runs);
-    deptMax.registrations = Math.max(deptMax.registrations, v.registrations);
-    deptMax.likes = Math.max(deptMax.likes, v.likes);
-  }
-  const prevDeptMax = { runs: 0, registrations: 0, likes: 0 };
-  for (const v of previous.byDept.values()) {
-    prevDeptMax.runs = Math.max(prevDeptMax.runs, v.runs);
-    prevDeptMax.registrations = Math.max(prevDeptMax.registrations, v.registrations);
-    prevDeptMax.likes = Math.max(prevDeptMax.likes, v.likes);
-  }
-
-  const depts: DeptLeaderboardRow[] = Array.from(current.byDept.entries())
-    .map(([dept, v]) => {
-      const score = scoreOf(v, deptMax);
-      const prev = previous.byDept.get(dept);
-      const prevScore = prev ? scoreOf(prev, prevDeptMax) : 0;
-      const delta = prevScore > 0 ? Math.round(((score - prevScore) / prevScore) * 100) : null;
-      return {
-        dept,
-        runs: v.runs,
-        registrations: v.registrations,
-        likes: v.likes,
-        activeUsers: v.activeUsers.size,
-        avgRunsPerUser: v.activeUsers.size ? Math.round((v.runs / v.activeUsers.size) * 10) / 10 : 0,
-        score,
-        delta,
-      };
-    })
-    .sort((a, b) => b.score - a.score);
-
-  const userMax = { runs: 0, registrations: 0, likes: 0 };
-  for (const v of current.byUser.values()) {
-    userMax.runs = Math.max(userMax.runs, v.runs);
-    userMax.registrations = Math.max(userMax.registrations, v.registrations);
-    userMax.likes = Math.max(userMax.likes, v.likes);
-  }
-
-  const individuals: PersonLeaderboardRow[] = Array.from(current.byUser.entries())
-    .map(([id, v]) => {
-      const badges: PersonLeaderboardRow["badges"] = [];
-      if (userMax.runs > 0 && v.runs === userMax.runs) badges.push("runs");
-      if (userMax.registrations > 0 && v.registrations === userMax.registrations) badges.push("registrations");
-      if (userMax.likes > 0 && v.likes === userMax.likes) badges.push("likes");
-      const lastActiveAt = lastActiveById.get(id) ?? null;
-      return {
-        id,
-        name: v.name,
-        dept: v.dept,
-        runs: v.runs,
-        registrations: v.registrations,
-        likes: v.likes,
-        score: scoreOf(v, userMax),
-        badges,
-        lastActive: lastActiveAt ? fmtDateTime(lastActiveAt) : "-",
-      };
-    })
-    .sort((a, b) => b.score - a.score);
-
-  return { depts, individuals, powerUser: individuals[0] ?? null };
-}
-
 // ---------- 감사 로그 ----------
 const AUDIT_ACTION_LABEL: Record<string, string> = {
-  prompt_generate: "프롬프트 만들기",
-  prompt_create: "프롬프트 등록",
-  prompt_update: "프롬프트 수정",
-  prompt_delete: "프롬프트 삭제",
-  prompt_run: "프롬프트 실행",
-  prompt_copy: "프롬프트 복사",
   agent_generate: "에이전트 만들기",
   agent_create: "에이전트 등록",
   agent_update: "에이전트 수정",
   agent_delete: "에이전트 삭제",
   agent_run: "에이전트 실행",
+  agent_copy: "정의 복사",
 };
 
 export async function listAuditLogs(filters: { action?: string; days?: number }) {
@@ -475,6 +215,7 @@ export async function listAuditLogs(filters: { action?: string; days?: number })
     id: l.id,
     time: fmtDateTime(l.createdAt),
     user: l.user.name,
+    dept: l.deptSnapshot,
     action: AUDIT_ACTION_LABEL[l.action] ?? l.action,
     target: l.targetLabel ?? "—",
     files: l.fileCount > 0 ? `${l.fileCount}개` : "—",

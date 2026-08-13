@@ -12,25 +12,27 @@ function timeAgo(d: Date): string {
   return `${days}일 전`;
 }
 
+// 활동 화면 = 받은 알림(내 에이전트에 달린 후기) + 내가 남긴 후기.
+// 좋아요가 사라지면서 "내가 좋아요한 목록" 자리를 "내가 남긴 후기"가 대신한다.
+// 저장 목록은 여기 넣지 않는다 — 비공개 북마크라 보드의 저장 탭에서만 본다.
 export async function GET() {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
-  const notifications = await db.notification.findMany({
-    where: { recipientId: user.id },
-    include: { actor: true, prompt: true, agent: true },
-    orderBy: { createdAt: "desc" },
-    take: 30,
-  });
-
-  const myLikes = await db.like.findMany({
-    where: { userId: user.id, OR: [{ promptId: { not: null } }, { agentId: { not: null } }] },
-    include: {
-      prompt: { include: { author: true } },
-      agent: { include: { author: true } },
-    },
-    orderBy: { createdAt: "desc" },
-  });
+  const [notifications, myReviews] = await Promise.all([
+    db.notification.findMany({
+      where: { recipientId: user.id },
+      include: { actor: true, agent: true },
+      orderBy: { createdAt: "desc" },
+      take: 30,
+    }),
+    db.review.findMany({
+      where: { userId: user.id },
+      include: { agent: { include: { author: true } } },
+      orderBy: { createdAt: "desc" },
+      take: 30,
+    }),
+  ]);
 
   return NextResponse.json({
     notifications: notifications.map((n) => ({
@@ -38,22 +40,19 @@ export async function GET() {
       type: n.type,
       actor: n.actor.name,
       ava: n.actor.name.charAt(0),
-      title: n.prompt?.title ?? n.agent?.name ?? "",
-      promptId: n.promptId,
+      title: n.agent?.name ?? "(삭제된 에이전트)",
       agentId: n.agentId,
-      text: n.commentText,
+      text: n.reviewText,
       time: timeAgo(n.createdAt),
     })),
-    myLikes: myLikes
-      .map((l) => {
-        if (l.prompt) {
-          return { kind: "prompt" as const, id: l.promptId as string, title: l.prompt.title, author: l.prompt.author.name, dept: l.prompt.author.dept };
-        }
-        if (l.agent) {
-          return { kind: "agent" as const, id: l.agentId as string, title: l.agent.name, author: l.agent.author.name, dept: l.agent.author.dept };
-        }
-        return null;
-      })
-      .filter((x): x is NonNullable<typeof x> => x !== null),
+    myReviews: myReviews.map((r) => ({
+      id: r.id,
+      agentId: r.agentId,
+      title: r.agent.name,
+      author: r.agent.author.name,
+      dept: r.agent.author.dept,
+      useCase: r.useCase,
+      time: timeAgo(r.createdAt),
+    })),
   });
 }
