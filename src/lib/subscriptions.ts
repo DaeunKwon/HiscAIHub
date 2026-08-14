@@ -3,15 +3,8 @@
 // 화면은 항상 가장 최근 스냅샷을 읽고, 과거 월은 추이 확인용으로 남겨 둔다.
 import { db } from "./db";
 
-// 도구 표기 순서·색은 ppt 확정값. 대시보드 범례와 스택 막대가 같은 순서를 써야 읽힌다.
-export const TOOL_ORDER = ["ChatGPT", "Gemini", "Claude", "Genspark", "기타"] as const;
-export const TOOL_COLORS: Record<string, string> = {
-  ChatGPT: "#1D8A63",
-  Gemini: "#4E79D4",
-  Claude: "#D96A28",
-  Genspark: "#9061C2",
-  기타: "#9AA0A6",
-};
+// 도구 표기 순서·색은 클라이언트 컴포넌트도 쓰므로 db를 물지 않는 모듈에 두고 여기서 다시 내보낸다.
+export { TOOL_ORDER, TOOL_COLORS } from "./subscription-tools";
 
 export type SubscriptionRowDTO = {
   name: string;

@@ -4,8 +4,7 @@ import { useEffect, useState } from "react";
 import type { AgentDTO } from "@/lib/agents";
 import "@/styles/agent-board.css";
 import AgentDetailModal from "./AgentDetailModal";
-import AgentFormModal, { type AgentDraft, type AgentFormData } from "./AgentFormModal";
-import AgentCreateModal from "./AgentCreateModal";
+import AgentFormModal, { type AgentFormData } from "./AgentFormModal";
 import { launchClaude } from "@/lib/launch-claude";
 import { RUN_ACTION } from "@/lib/categories";
 import {
@@ -31,8 +30,6 @@ export default function AgentBoard({
   search,
   registerOpen,
   setRegisterOpen,
-  createOpen,
-  setCreateOpen,
   openAgentId,
   onConsumeOpenAgentId,
 }: {
@@ -41,15 +38,12 @@ export default function AgentBoard({
   search: string;
   registerOpen: boolean;
   setRegisterOpen: (open: boolean) => void;
-  createOpen: boolean;
-  setCreateOpen: (open: boolean) => void;
   openAgentId?: string | null;
   onConsumeOpenAgentId?: () => void;
 }) {
   const [agents, setAgents] = useState(initialAgents);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [editing, setEditing] = useState<AgentDTO | null>(null);
-  const [draft, setDraft] = useState<AgentDraft | null>(null);
   const [toast, setToast] = useState("");
 
   useEffect(() => {
@@ -130,7 +124,6 @@ export default function AgentBoard({
   function closeForm() {
     setRegisterOpen(false);
     setEditing(null);
-    setDraft(null);
   }
 
   async function submitForm(data: AgentFormData): Promise<string | null> {
@@ -216,20 +209,8 @@ export default function AgentBoard({
       <AgentFormModal
         open={registerOpen}
         editing={editing}
-        draft={editing ? null : draft}
         onClose={closeForm}
         onSubmit={submitForm}
-      />
-
-      <AgentCreateModal
-        open={createOpen}
-        onClose={() => setCreateOpen(false)}
-        onUseGenerated={(d) => {
-          setEditing(null);
-          setDraft(d);
-          setCreateOpen(false);
-          setRegisterOpen(true);
-        }}
       />
 
       <div

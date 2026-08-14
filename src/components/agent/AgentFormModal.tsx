@@ -24,8 +24,6 @@ export type AgentFormData = {
   linkUrl: string;
 };
 
-export type AgentDraft = Partial<AgentFormData> & { instructions: string };
-
 const EMPTY: AgentFormData = {
   cat: CATEGORIES[0],
   name: "",
@@ -49,13 +47,11 @@ const lines = (s: string): string[] => s.split("\n").map((t) => t.trim()).filter
 export default function AgentFormModal({
   open,
   editing,
-  draft,
   onClose,
   onSubmit,
 }: {
   open: boolean;
   editing: AgentDTO | null;
-  draft?: AgentDraft | null;
   onClose: () => void;
   onSubmit: (data: AgentFormData) => Promise<string | null>;
 }) {
@@ -90,16 +86,14 @@ export default function AgentFormModal({
           instructions: editing.instructions,
           linkUrl: editing.linkUrl ?? "",
         }
-      : draft
-        ? { ...EMPTY, ...draft }
-        : EMPTY;
+      : EMPTY;
 
     setForm(base);
     setTasksText(base.tasks.join("\n"));
     setToolsText(base.tools.join("\n"));
     setPrereqText(base.prerequisites.join("\n"));
     setHowToText(base.howToUse.join("\n"));
-  }, [open, editing, draft]);
+  }, [open, editing]);
 
   if (!open) return null;
 

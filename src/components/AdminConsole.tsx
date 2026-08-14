@@ -6,7 +6,6 @@ import { useEffect, useState } from "react";
 import { adminLogout } from "@/app/actions/auth";
 
 const ICON: Record<string, string> = {
-  dashboard: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>`,
   content: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8"/><path d="M8 17h5"/></svg>`,
   reports: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" x2="4" y1="22" y2="15"/></svg>`,
   users: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
@@ -31,10 +30,9 @@ function Ic({ name }: { name: string }) {
   return <span style={{ display: "inline-flex", lineHeight: 0 }} dangerouslySetInnerHTML={{ __html: ICON[name] }} />;
 }
 
-type Section = "dashboard" | "content" | "reports" | "users" | "usage" | "audit" | "settings";
+type Section = "content" | "reports" | "users" | "usage" | "audit" | "settings";
 
 const PAGE: Record<Section, [string, string]> = {
-  dashboard: ["대시보드", "서비스 운영 현황을 한눈에 확인하세요."],
   content: ["콘텐츠 관리", "등록된 프롬프트·에이전트를 검수하고 관리해요."],
   reports: ["신고 처리", "사용자가 신고한 콘텐츠를 확인하고 처리해요."],
   users: ["사용자·권한", "사용자 역할을 관리해요. 계정은 회사 SSO가 관리해요."],
@@ -47,17 +45,6 @@ const PAGE: Record<Section, [string, string]> = {
 type ContentRow = { id: string; type: "프롬프트" | "에이전트"; title: string; author: string; dept: string; metric: string; status: "pub" | "hidden" | "flag"; official: boolean };
 type ReportRow = { id: string; type: "프롬프트" | "에이전트"; contentType: "prompt" | "agent"; contentId: string; title: string; reason: string; reporterCount: number; date: string };
 type UserRow = { id: string; name: string; dept: string; email: string; posts: number; last: string; role: "admin" | "mod" | "user" };
-type DashboardData = {
-  activeUsers: number;
-  activeUsersDelta: number | null;
-  newContent: { prompts: number; agents: number; total: number };
-  callsThisWeek: number;
-  callsDelta: number | null;
-  costThisWeekUsd: number;
-  pendingReports: { id: string; type: "프롬프트" | "에이전트"; title: string; reason: string }[];
-  pendingReportCount: number;
-  topContent: { type: "프롬프트" | "에이전트"; title: string; runs: number }[];
-};
 type UsageData = {
   daily: { label: string; count: number; cost: number }[];
   featureBreakdown: { feature: string; label: string; count: number; cost: number }[];
@@ -68,30 +55,10 @@ type UsageData = {
 };
 type AuditRow = { id: string; time: string; user: string; action: string; target: string; files: string; status: string };
 type CategoryRow = { id: string; name: string };
-type Badge = "runs" | "registrations" | "likes";
-type DeptRow = { dept: string; runs: number; registrations: number; likes: number; activeUsers: number; avgRunsPerUser: number; score: number; delta: number | null };
-type PersonRow = { id: string; name: string; dept: string; runs: number; registrations: number; likes: number; score: number; badges: Badge[]; lastActive: string };
-type LeaderboardData = { depts: DeptRow[]; individuals: PersonRow[]; powerUser: PersonRow | null };
-
-const BADGE_LABEL: Record<Badge, string> = { runs: "실행 1위", registrations: "등록 1위", likes: "좋아요 1위" };
-
-function RankBadge({ i }: { i: number }) {
-  if (i === 0) return <span className="rank-badge gold">1</span>;
-  if (i === 1) return <span className="rank-badge silver">2</span>;
-  if (i === 2) return <span className="rank-badge bronze">3</span>;
-  return <span className="rank">{i + 1}</span>;
-}
-
-function heat(value: number, max: number): { background: string } {
-  const alpha = max > 0 ? Math.min(0.4, 0.05 + (value / max) * 0.35) : 0.05;
-  return { background: `rgba(217,106,40,${alpha})` };
-}
-
 const STATUS: Record<string, [string, string]> = { pub: ["공개", "pub"], hidden: ["숨김", "hidden"], flag: ["신고됨", "flag"] };
 const ROLE: Record<string, [string, string]> = { admin: ["관리자", "role-admin"], mod: ["운영자", "role-mod"], user: ["일반", "role-user"] };
 
 const NAV: { sec: Section; label: string; group: string; badge?: boolean }[] = [
-  { sec: "dashboard", label: "대시보드", group: "운영" },
   { sec: "content", label: "콘텐츠 관리", group: "운영" },
   { sec: "reports", label: "신고 처리", group: "운영", badge: true },
   { sec: "users", label: "사용자·권한", group: "관리" },
@@ -106,14 +73,10 @@ async function getJson<T>(url: string): Promise<T> {
 }
 
 export default function AdminConsole() {
-  const [sec, setSec] = useState<Section>("dashboard");
+  // 대시보드·리더보드는 전 임직원 공개 화면(메인 대시보드 탭)으로 옮겨져 여기 없다(기획서 4.7).
+  const [sec, setSec] = useState<Section>("content");
   const [toast, setToast] = useState("");
-  const [bannerOpen, setBannerOpen] = useState(true);
 
-  const [dashboard, setDashboard] = useState<DashboardData | null>(null);
-  // 어느 기간의 응답인지 함께 들고 있어야, 기간을 바꾼 직후 이전 기간 수치가 새 라벨 아래 남지 않는다.
-  const [leaderboard, setLeaderboard] = useState<{ days: number; data: LeaderboardData } | null>(null);
-  const [lbDays, setLbDays] = useState(7);
   const [content, setContent] = useState<ContentRow[] | null>(null);
   const [cFilter, setCFilter] = useState("");
   const [cType, setCType] = useState("");
@@ -138,13 +101,11 @@ export default function AdminConsole() {
 
   // 대기 신고 배지(사이드바)는 항상 최신으로 유지
   useEffect(() => {
-    getJson<{ pendingReportCount: number }>("/api/admin/dashboard").then((d) => setPendingCount(d.pendingReportCount));
+    getJson<{ reports: ReportRow[] }>("/api/admin/reports").then((d) => setPendingCount(d.reports.length));
   }, []);
 
   useEffect(() => {
-    if (sec === "dashboard") {
-      getJson<DashboardData>("/api/admin/dashboard").then((d) => { setDashboard(d); setPendingCount(d.pendingReportCount); });
-    } else if (sec === "content") {
+    if (sec === "content") {
       getJson<{ content: ContentRow[] }>("/api/admin/content").then((d) => setContent(d.content));
     } else if (sec === "reports") {
       getJson<{ reports: ReportRow[] }>("/api/admin/reports").then((d) => { setReports(d.reports); setPendingCount(d.reports.length); });
@@ -164,17 +125,6 @@ export default function AdminConsole() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sec]);
-
-  // 대시보드 진입 시점과 기간 토글 양쪽을 여기서만 처리한다(위 [sec] 이펙트에서도 부르면 최초 진입에 요청이 두 번 나감).
-  // 기간을 빠르게 바꾸면 앞선 응답이 늦게 도착해 표와 기간 라벨이 어긋날 수 있어, 취소 플래그로 마지막 요청만 반영한다.
-  useEffect(() => {
-    if (sec !== "dashboard") return;
-    let cancelled = false;
-    getJson<LeaderboardData>(`/api/admin/leaderboard?days=${lbDays}`).then((d) => {
-      if (!cancelled) setLeaderboard({ days: lbDays, data: d });
-    });
-    return () => { cancelled = true; };
-  }, [sec, lbDays]);
 
   function loadAudit() {
     const qs = new URLSearchParams();
@@ -236,17 +186,6 @@ export default function AdminConsole() {
         </div>
 
         <div className="admin-content">
-          {sec === "dashboard" && (
-            <Dashboard
-              data={dashboard}
-              leaderboard={leaderboard?.days === lbDays ? leaderboard.data : null}
-              lbDays={lbDays}
-              onLbDays={setLbDays}
-              bannerOpen={bannerOpen}
-              onCloseBanner={() => setBannerOpen(false)}
-              onGo={setSec}
-            />
-          )}
           {sec === "content" && content && (
             <ContentSection
               rows={content.filter((c) => (!cFilter || (c.title + c.author).toLowerCase().includes(cFilter)) && (!cType || c.type === cType))}
@@ -346,164 +285,6 @@ export default function AdminConsole() {
         {toast}
       </div>
     </div>
-  );
-}
-
-function Dashboard({
-  data, leaderboard, lbDays, onLbDays, bannerOpen, onCloseBanner, onGo,
-}: {
-  data: DashboardData | null;
-  leaderboard: LeaderboardData | null;
-  lbDays: number;
-  onLbDays: (d: number) => void;
-  bannerOpen: boolean;
-  onCloseBanner: () => void;
-  onGo: (s: Section) => void;
-}) {
-  if (!data) return <p style={{ fontSize: 12.5, color: "var(--text-3)" }}>불러오는 중…</p>;
-  const showBanner = bannerOpen && data.callsDelta !== null && data.callsDelta >= 30;
-  // 셀 배경 농도(heat)의 기준값 — 표 전체에서 한 번만 구한다.
-  const depts = leaderboard?.depts ?? [];
-  const deptMax = {
-    runs: Math.max(0, ...depts.map((x) => x.runs)),
-    registrations: Math.max(0, ...depts.map((x) => x.registrations)),
-    likes: Math.max(0, ...depts.map((x) => x.likes)),
-  };
-  return (
-    <>
-      {showBanner && (
-        <div className="banner">
-          <Ic name="alert" />
-          <div><b>Claude 호출량이 지난주 대비 {data.callsDelta}% 증가</b>했어요. 사용량·비용 탭에서 급증 사용자를 확인해보세요.</div>
-          <button className="x" onClick={onCloseBanner}><Ic name="x" /></button>
-        </div>
-      )}
-      <div className="stat-grid">
-        <div className="stat">
-          <div className="label"><Ic name="sUsers" /> 이번 주 활성 사용자</div>
-          <div className="num">{data.activeUsers}</div>
-          <div className={`delta ${data.activeUsersDelta !== null && data.activeUsersDelta < 0 ? "down" : "up"}`}>
-            {data.activeUsersDelta === null ? "전주 데이터 없음" : `${data.activeUsersDelta >= 0 ? "▲" : "▼"} 지난주 대비 ${Math.abs(data.activeUsersDelta)}%`}
-          </div>
-        </div>
-        <div className="stat">
-          <div className="label"><Ic name="sPlus" /> 신규 등록</div>
-          <div className="num">{data.newContent.total}<span className="unit">건</span></div>
-          <div className="delta up">프롬프트 {data.newContent.prompts} · 에이전트 {data.newContent.agents}</div>
-        </div>
-        <div className="stat">
-          <div className="label"><Ic name="sZap" /> Claude 호출 (주간)</div>
-          <div className="num">{data.callsThisWeek.toLocaleString()}</div>
-          <div className={`delta ${data.callsDelta !== null && data.callsDelta < 0 ? "down" : "up"}`}>
-            {data.callsDelta === null ? "전주 데이터 없음" : `${data.callsDelta >= 0 ? "▲" : "▼"} ${data.callsDelta >= 30 ? "급증 " : ""}${Math.abs(data.callsDelta)}%`}
-          </div>
-        </div>
-        <div className="stat">
-          <div className="label"><Ic name="sClock" /> 예상 비용 (주간)</div>
-          <div className="num">${data.costThisWeekUsd.toFixed(2)}</div>
-          <div className="delta up">실제 Claude API 사용량 기준</div>
-        </div>
-      </div>
-      <div className="cols">
-        <div className="panel">
-          <div className="panel-head"><h3>처리 대기 신고</h3><a onClick={() => onGo("reports")}>모두 보기 →</a></div>
-          {data.pendingReports.length === 0 ? (
-            <div className="empty-state">처리할 신고가 없어요.</div>
-          ) : data.pendingReports.map((r) => (
-            <div className="lrow" key={r.id}><span className={`type-tag ${r.type === "프롬프트" ? "p" : "a"}`}>{r.type}</span><div className="grow"><div className="t">{r.title}</div><div className="m">사유: {r.reason}</div></div></div>
-          ))}
-        </div>
-        <div className="panel">
-          <div className="panel-head"><h3>이번 주 인기 콘텐츠</h3><a onClick={() => onGo("content")}>콘텐츠 관리 →</a></div>
-          {data.topContent.map((r, i) => (
-            <div className="lrow" key={i}><span className="rank">{i + 1}</span><span className={`type-tag ${r.type === "프롬프트" ? "p" : "a"}`}>{r.type}</span><div className="grow"><div className="t">{r.title}</div></div><span className="val">실행 {r.runs}</span></div>
-          ))}
-        </div>
-      </div>
-
-      <div className="lb-head">
-        <h2 className="sec-sub" style={{ margin: 0 }}>부서·임직원 활용도</h2>
-        <div className="range-toggle">
-          {[7, 30, 90].map((d) => (
-            <button key={d} className={lbDays === d ? "on" : ""} onClick={() => onLbDays(d)}>최근 {d}일</button>
-          ))}
-        </div>
-      </div>
-
-      {!leaderboard ? (
-        <p style={{ fontSize: 12.5, color: "var(--text-3)" }}>불러오는 중…</p>
-      ) : (
-        <>
-          <div className="panel" style={{ marginBottom: 16 }}>
-            <div className="panel-head"><h3>부서별 활동 랭킹</h3><span style={{ fontSize: 12, color: "var(--text-3)" }}>어느 부서가 Claude를 가장 많이·잘 쓰는지 · 실행은 &quot;Claude로 실행&quot; 버튼 클릭 기준</span></div>
-            {leaderboard.depts.length === 0 ? (
-              <div className="empty-state">이 기간엔 활동 기록이 없어요.</div>
-            ) : (
-              <table className="tbl dept-tbl">
-                <thead><tr><th>순위</th><th>부서</th><th>종합점수</th><th>Claude 실행</th><th>콘텐츠 등록</th><th>좋아요 획득</th><th>활성 인원</th><th>인당 평균 실행</th><th>전기간 대비</th></tr></thead>
-                <tbody>
-                  {leaderboard.depts.map((d, i) => (
-                    <tr key={d.dept}>
-                      <td><RankBadge i={i} /></td>
-                      <td><div className="cell-title">{d.dept}</div></td>
-                      <td style={{ fontWeight: 600, color: "var(--org-muted)" }}>{d.score}</td>
-                      <td style={heat(d.runs, deptMax.runs)}>{d.runs}</td>
-                      <td style={heat(d.registrations, deptMax.registrations)}>{d.registrations}</td>
-                      <td style={heat(d.likes, deptMax.likes)}>{d.likes}</td>
-                      <td style={{ color: "var(--text-2)" }}>{d.activeUsers}명</td>
-                      <td style={{ color: "var(--text-2)" }}>{d.avgRunsPerUser}회</td>
-                      {/* 비교할 이전 기간 활동이 없으면(delta null) 증감이 아니므로 색을 입히지 않는다. */}
-                      <td className={d.delta === null ? "" : `delta ${d.delta < 0 ? "down" : "up"}`}>
-                        {d.delta === null ? "-" : `${d.delta >= 0 ? "▲" : "▼"} ${Math.abs(d.delta)}%`}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-
-          <div className="cols lb-cols">
-            <div className="panel">
-              <div className="panel-head"><h3>이 기간의 파워 유저</h3></div>
-              {!leaderboard.powerUser ? (
-                <div className="empty-state">이 기간엔 활동 기록이 없어요.</div>
-              ) : (
-                <div className="power-card">
-                  <div className="power-ava">{leaderboard.powerUser.name.slice(-2)}</div>
-                  <div className="power-body">
-                    <div className="power-name">{leaderboard.powerUser.name} <span className="power-dept">{leaderboard.powerUser.dept}</span></div>
-                    <div className="power-badges">
-                      {leaderboard.powerUser.badges.map((b) => <span className="badge official" key={b}>{BADGE_LABEL[b]}</span>)}
-                    </div>
-                    <div className="power-metrics">
-                      <div><b>{leaderboard.powerUser.runs}</b>실행</div>
-                      <div><b>{leaderboard.powerUser.registrations}</b>등록</div>
-                      <div><b>{leaderboard.powerUser.likes}</b>좋아요</div>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-            <div className="panel">
-              <div className="panel-head"><h3>임직원 활동 랭킹</h3></div>
-              {leaderboard.individuals.length === 0 ? (
-                <div className="empty-state">이 기간엔 활동 기록이 없어요.</div>
-              ) : leaderboard.individuals.slice(0, 5).map((p, i) => (
-                <div className="lrow" key={p.id}>
-                  <RankBadge i={i} />
-                  <div className="grow">
-                    <div className="t">{p.name} · {p.dept}</div>
-                    <div className="m">실행 {p.runs} · 등록 {p.registrations} · 좋아요 {p.likes}{p.badges.length ? ` · ${p.badges.map((b) => BADGE_LABEL[b]).join(", ")}` : ""}</div>
-                  </div>
-                  <span className="val">{p.score}점</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </>
-      )}
-    </>
   );
 }
 

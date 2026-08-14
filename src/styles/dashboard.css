@@ -1,0 +1,143 @@
+/* 대시보드 — design-reference/agent_hub_v3_mockup.html 의 "v3 신규 — 대시보드" 블록 이식.
+   전 임직원 공개 화면(기획서 4.7). 값은 목업 그대로, 임의 변경 금지. */
+
+.dash-sec { margin-bottom: 34px; }
+.dash-sec-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 14px; flex-wrap: wrap; }
+.dash-sec-head h3 { font-size: 14.5px; font-weight: 600; margin: 0 0 3px; }
+.dash-sec-head p { font-size: 11.5px; color: var(--text-3); margin: 0; line-height: 1.6; }
+
+.range-toggle { display: flex; gap: 2px; background: var(--surface-2); border: 0.5px solid var(--border); border-radius: 20px; padding: 3px; }
+.range-toggle button { background: none; border: none; font-size: 11.5px; color: var(--text-2); padding: 5px 12px; border-radius: 20px; cursor: pointer; }
+.range-toggle button.on { background: var(--surface); color: var(--org); font-weight: 500; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06); }
+
+/* KPI */
+.kpi-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 22px; }
+@media (max-width: 1080px) { .kpi-strip { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 660px) { .kpi-strip { grid-template-columns: repeat(2, 1fr); } }
+.kpi { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 14px 15px; }
+.kpi .l { font-size: 11px; color: var(--text-3); margin-bottom: 7px; line-height: 1.4; }
+.kpi .v { font-size: 21px; font-weight: 600; line-height: 1.1; }
+.kpi .v small { font-size: 11.5px; font-weight: 400; color: var(--text-3); margin-left: 3px; }
+.kpi .d { font-size: 11px; margin-top: 5px; color: var(--text-3); }
+.kpi .d.up { color: var(--ok); }
+.kpi .d.down { color: var(--danger-fg); }
+/* 부서 확산 지표는 따로 묶어 보여준다 */
+.kpi.spread { background: var(--org-light); border-color: transparent; }
+.kpi.spread .l, .kpi.spread .d { color: var(--org-muted); }
+.est-tag { font-size: 9.5px; font-weight: 600; color: var(--text-3); background: var(--surface-2); border-radius: 4px; padding: 1px 5px; margin-left: 4px; vertical-align: middle; }
+
+/* 패널 */
+.dash-panel { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 20px 22px; }
+.dash-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 980px) { .dash-2col { grid-template-columns: 1fr; } }
+.panel-head { font-size: 12.5px; font-weight: 600; margin-bottom: 2px; }
+.panel-sub { font-size: 11px; color: var(--text-3); margin-bottom: 16px; line-height: 1.6; }
+.howto-sub { font-size: 11px; font-weight: 600; color: var(--text-3); letter-spacing: 0.04em; margin-bottom: 9px; }
+
+/* 도넛 + 팀 비중 */
+.donut-row { display: flex; align-items: center; gap: 22px; flex-wrap: wrap; }
+.donut-wrap { position: relative; width: 168px; height: 168px; flex-shrink: 0; }
+.donut-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+.donut-center .pct { font-size: 27px; font-weight: 600; line-height: 1; }
+.donut-center .nm { font-size: 11px; color: var(--text-2); margin-top: 5px; }
+.donut-center .cap { font-size: 9.5px; color: var(--text-3); margin-top: 2px; }
+.rank-list { flex: 1; min-width: 230px; display: flex; flex-direction: column; gap: 2px; }
+.rank-item { display: flex; align-items: center; gap: 9px; padding: 7px 4px; border-radius: 6px; }
+.rank-item:hover { background: var(--surface-2); }
+.rank-chip { width: 9px; height: 9px; border-radius: 3px; flex-shrink: 0; }
+.rank-no { font-size: 11px; color: var(--text-3); width: 12px; flex-shrink: 0; }
+.rank-main { flex: 1; min-width: 0; }
+.rank-name { font-size: 12.5px; line-height: 1.35; }
+.rank-sub { font-size: 10.5px; color: var(--text-3); line-height: 1.4; }
+.rank-score { font-size: 12.5px; font-weight: 600; text-align: right; }
+.rank-share { font-size: 10.5px; color: var(--text-3); text-align: right; width: 34px; flex-shrink: 0; }
+
+/* 리더보드 표 */
+.lb-table { width: 100%; border-collapse: collapse; }
+.lb-table th { font-size: 10.5px; font-weight: 500; color: var(--text-3); text-align: right; padding: 0 8px 9px; border-bottom: 0.5px solid var(--border); white-space: nowrap; }
+.lb-table th:first-child, .lb-table th:nth-child(2) { text-align: left; }
+.lb-table td { font-size: 12px; padding: 9px 8px; border-bottom: 0.5px solid var(--border); text-align: right; white-space: nowrap; }
+.lb-table td:first-child, .lb-table td:nth-child(2) { text-align: left; }
+.lb-table tr:last-child td { border-bottom: none; }
+.lb-table tr.clickable { cursor: pointer; }
+.lb-table tr.clickable:hover td { background: var(--surface-2); }
+.rank-badge { display: inline-flex; align-items: center; justify-content: center; width: 19px; height: 19px; border-radius: 50%; font-size: 10.5px; font-weight: 600; background: var(--surface-2); color: var(--text-2); }
+.rank-badge.gold { background: #F5E6C8; color: #8A6D17; }
+.rank-badge.silver { background: #E8E8E4; color: #6B6A65; }
+.rank-badge.bronze { background: #F0DFD2; color: #8A5A32; }
+.td-team { font-size: 12px; }
+.td-team small { display: block; font-size: 10px; color: var(--text-3); margin-top: 1px; }
+.delta.up { color: var(--ok); }
+.delta.down { color: var(--danger-fg); }
+.drill-td { background: var(--surface-2); padding: 6px 8px 14px 34px !important; text-align: left !important; }
+
+/* 파워 유저 */
+.power-card { display: flex; align-items: center; gap: 16px; background: var(--org-light); border-radius: var(--radius-lg); padding: 16px 18px; margin-bottom: 16px; flex-wrap: wrap; }
+.power-ava { width: 44px; height: 44px; border-radius: 50%; background: var(--surface); color: var(--org-muted); display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 600; flex-shrink: 0; }
+.power-main { flex: 1; min-width: 150px; }
+.power-name { font-size: 14px; font-weight: 600; }
+.power-dept { font-size: 11px; color: var(--org-muted); margin-top: 2px; }
+.power-badges { display: flex; gap: 5px; margin-top: 7px; flex-wrap: wrap; }
+.power-badges span { font-size: 10.5px; background: var(--surface); color: var(--org-muted); border-radius: 20px; padding: 3px 9px; }
+.power-metrics { display: flex; gap: 20px; }
+.power-metrics div { text-align: right; }
+.power-metrics .pv { font-size: 17px; font-weight: 600; }
+.power-metrics .pl { font-size: 10.5px; color: var(--org-muted); margin-top: 1px; }
+.mini-bar { height: 5px; border-radius: 3px; background: var(--surface-2); overflow: hidden; margin-top: 5px; }
+.mini-bar span { display: block; height: 100%; background: var(--org); border-radius: 3px; }
+
+/* 에이전트 확산 */
+.spread-row { border-bottom: 0.5px solid var(--border); cursor: pointer; }
+.spread-row:last-child { border-bottom: none; }
+.spread-head { display: flex; align-items: center; gap: 10px; padding: 11px 6px; border-radius: 6px; }
+.spread-row:hover .spread-head { background: var(--surface-2); }
+.caret { font-size: 9px; color: var(--text-3); width: 9px; flex-shrink: 0; }
+.spread-main { flex: 1; min-width: 0; }
+.sp-name { font-size: 12.5px; line-height: 1.4; }
+.sp-sub { font-size: 10.5px; color: var(--text-3); margin-top: 2px; }
+.sp-teams { font-size: 12px; font-weight: 600; width: 36px; text-align: right; flex-shrink: 0; }
+.sp-bar { width: 84px; height: 6px; border-radius: 3px; background: var(--surface-2); overflow: hidden; flex-shrink: 0; }
+.sp-bar i { display: block; height: 100%; background: var(--org); border-radius: 3px; }
+.sp-pct { font-size: 10.5px; color: var(--text-3); width: 58px; text-align: right; flex-shrink: 0; }
+.drill { padding: 2px 6px 14px 25px; }
+.drill-row { display: flex; align-items: center; gap: 9px; padding: 4px 0; }
+.dr-name { font-size: 11.5px; color: var(--text-2); width: 150px; flex-shrink: 0; display: flex; align-items: center; gap: 5px; }
+.own-tag { font-size: 9.5px; color: var(--org-muted); background: var(--org-light); border-radius: 4px; padding: 1px 5px; white-space: nowrap; }
+.dr-bar { flex: 1; height: 8px; border-radius: 3px; background: var(--surface-2); overflow: hidden; }
+.dr-bar i { display: block; height: 100%; background: var(--org); opacity: 0.72; border-radius: 3px; }
+.dr-num { font-size: 11px; color: var(--text-3); width: 40px; text-align: right; flex-shrink: 0; }
+.team-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.team-chip { font-size: 11.5px; color: var(--text-2); background: var(--surface-2); border: 0.5px solid var(--border); border-radius: 20px; padding: 5px 11px; display: inline-flex; align-items: center; gap: 6px; }
+.team-chip b { font-weight: 600; color: var(--text-1); }
+.team-chip.owner { background: var(--org-light); border-color: transparent; color: var(--org-muted); }
+.team-chip.owner b { color: var(--org-muted); }
+
+/* 업무 유형별 등록·실행 */
+.cat-rows { display: flex; flex-direction: column; gap: 11px; }
+.cat-row { display: flex; align-items: center; gap: 11px; }
+.cat-row .nm { font-size: 12px; width: 92px; flex-shrink: 0; }
+.cat-row .bar { flex: 1; height: 16px; background: var(--surface-2); border-radius: 4px; overflow: hidden; display: flex; }
+.cat-row .bar i { display: block; height: 100%; }
+.cat-row .bar i.reg { background: #C9C6BE; }
+.cat-row .bar i.run { background: var(--org); }
+.cat-row .nums { font-size: 11px; color: var(--text-3); width: 112px; text-align: right; flex-shrink: 0; }
+.cat-legend { display: flex; gap: 14px; font-size: 11px; color: var(--text-3); margin-bottom: 14px; }
+.cat-legend span { display: flex; align-items: center; gap: 5px; }
+.cat-legend i { width: 9px; height: 9px; border-radius: 3px; display: block; }
+
+/* 부서별 AI 구독 현황 */
+.sub-legend { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 16px; }
+.sub-legend span { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--text-2); }
+.sub-legend i { width: 10px; height: 10px; border-radius: 3px; display: block; }
+.sub-row { display: flex; align-items: center; gap: 12px; padding: 9px 0; border-bottom: 0.5px solid var(--border); }
+.sub-row:last-child { border-bottom: none; }
+.sub-label { width: 150px; flex-shrink: 0; }
+.sub-label .nm { font-size: 12.5px; line-height: 1.35; }
+.sub-label .meta { font-size: 10px; color: var(--text-3); margin-top: 2px; line-height: 1.4; }
+.sub-bar { flex: 1; height: 20px; display: flex; border-radius: 4px; overflow: hidden; background: var(--surface-2); min-width: 120px; }
+.sub-seg { height: 100%; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #fff; font-weight: 600; }
+.sub-total { width: 52px; text-align: right; font-size: 12px; font-weight: 600; flex-shrink: 0; }
+.sub-note { font-size: 11px; color: var(--text-3); line-height: 1.7; margin-top: 14px; padding-top: 14px; border-top: 0.5px solid var(--border); }
+.sub-summary { display: flex; gap: 22px; flex-wrap: wrap; margin-bottom: 18px; }
+.sub-summary div { font-size: 11.5px; color: var(--text-3); }
+.sub-summary b { display: block; font-size: 19px; font-weight: 600; color: var(--text-1); margin-bottom: 2px; }
