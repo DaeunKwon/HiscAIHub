@@ -145,3 +145,25 @@ export async function getAgentDTO(id: string, userId: string | null): Promise<Ag
   if (!a) return null;
   return serializeAgent(a, userId);
 }
+
+export type TeamRunRow = { team: string; runs: number; owner: boolean };
+
+/**
+ * 이 에이전트를 최근 30일 동안 실행한 팀 (많이 실행한 순).
+ * 대시보드의 확산 지표와 같은 원천(AuditLog.deptSnapshot)을 쓴다 — 실행 시점 부서 기준이라
+ * 조직개편이 있어도 과거 수치가 흔들리지 않는다.
+ */
+export async function getAgentTeamRuns(id: string, ownerDept: string): Promise<TeamRunRow[]> {
+  const since = new Date();
+  since.setDate(since.getDate() - 30);
+
+  const grouped = await db.auditLog.groupBy({
+    by: ["deptSnapshot"],
+    where: { action: "agent_run", targetId: id, createdAt: { gte: since } },
+    _count: { _all: true },
+  });
+
+  return grouped
+    .map((g) => ({ team: g.deptSnapshot, runs: g._count._all, owner: g.deptSnapshot === ownerDept }))
+    .sort((a, b) => b.runs - a.runs);
+}

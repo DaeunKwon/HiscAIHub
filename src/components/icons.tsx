@@ -28,6 +28,60 @@ export function BulbIcon(props: IconProps) {
   );
 }
 
+export function ArrowLeftIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="m12 19-7-7 7-7" />
+      <path d="M19 12H5" />
+    </svg>
+  );
+}
+
+export function TargetIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <circle cx="12" cy="12" r="10" />
+      <circle cx="12" cy="12" r="6" />
+      <circle cx="12" cy="12" r="2" />
+    </svg>
+  );
+}
+
+export function TrendIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M16 7h6v6" />
+      <path d="m22 7-8.5 8.5-5-5L2 17" />
+    </svg>
+  );
+}
+
+export function BookIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20" />
+    </svg>
+  );
+}
+
+export function LinkIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+    </svg>
+  );
+}
+
+export function ClockIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <circle cx="12" cy="12" r="10" />
+      <path d="M12 6v6l4 2" />
+    </svg>
+  );
+}
+
 export function ChartIcon(props: IconProps) {
   return (
     <svg {...base(props)}>

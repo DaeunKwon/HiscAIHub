@@ -1,12 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { AgentDTO } from "@/lib/agents";
+import { Toast, useToast } from "@/components/Toast";
 import "@/styles/agent-board.css";
-import AgentDetailModal from "./AgentDetailModal";
-import AgentFormModal, { type AgentFormData } from "./AgentFormModal";
-import { launchClaude } from "@/lib/launch-claude";
-import { RUN_ACTION } from "@/lib/categories";
 import {
   BotIcon,
   ZapIcon,
@@ -17,93 +16,25 @@ import {
   TrashIcon,
 } from "@/components/icons";
 
-export type ReviewInput = {
-  useCase: string;
-  effect: string;
-  timeBefore: string;
-  timeAfter: string;
-};
-
 export default function AgentBoard({
   initialAgents,
   tab,
   search,
-  registerOpen,
-  setRegisterOpen,
-  openAgentId,
-  onConsumeOpenAgentId,
 }: {
   initialAgents: AgentDTO[];
   tab: string;
   search: string;
-  registerOpen: boolean;
-  setRegisterOpen: (open: boolean) => void;
-  openAgentId?: string | null;
-  onConsumeOpenAgentId?: () => void;
 }) {
+  const router = useRouter();
+  const { message, show } = useToast();
   const [agents, setAgents] = useState(initialAgents);
-  const [detailId, setDetailId] = useState<string | null>(null);
-  const [editing, setEditing] = useState<AgentDTO | null>(null);
-  const [toast, setToast] = useState("");
-
-  useEffect(() => {
-    if (openAgentId) {
-      setDetailId(openAgentId);
-      onConsumeOpenAgentId?.();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [openAgentId]);
-
-  function showToast(msg: string) {
-    setToast(msg);
-    window.clearTimeout((showToast as unknown as { _t?: number })._t);
-    (showToast as unknown as { _t?: number })._t = window.setTimeout(() => setToast(""), 2200);
-  }
 
   async function toggleSave(id: string) {
     const res = await fetch(`/api/agents/${id}/save`, { method: "POST" });
     if (!res.ok) return;
     const data = await res.json();
     setAgents((prev) => prev.map((a) => (a.id === id ? { ...a, saved: data.saved } : a)));
-    showToast(data.saved ? "저장했어요" : "저장을 취소했어요");
-  }
-
-  // 정의 복사는 실행과 구분해 기록한다 — 실행 카운터는 올리지 않는다.
-  async function copyInstructions(a: AgentDTO) {
-    try {
-      await navigator.clipboard.writeText(a.instructions);
-    } catch {}
-    fetch(`/api/agents/${a.id}/copy`, { method: "POST" }).catch(() => {});
-    showToast("에이전트 정의를 복사했어요");
-  }
-
-  // "가져다 쓰기" — 실행 방식에 따라 안내가 다르지만, 어느 쪽이든 실제 실행은 각자 환경에서 이뤄진다.
-  // 여기서는 실행 카운터와 감사 로그(부서 확산 지표의 원천)만 남긴다.
-  async function runAgent(a: AgentDTO) {
-    if (a.runType === "skill" || a.runType === "schedule") {
-      await launchClaude(a.instructions);
-    } else if (a.linkUrl) {
-      window.open(a.linkUrl, "_blank", "noopener");
-    }
-    const res = await fetch(`/api/agents/${a.id}/run`, { method: "POST" });
-    if (res.ok) {
-      const data = await res.json();
-      setAgents((prev) => prev.map((x) => (x.id === a.id ? { ...x, runs: data.runs } : x)));
-    }
-    showToast(RUN_ACTION[a.runType].toast);
-  }
-
-  async function submitReview(id: string, input: ReviewInput): Promise<string | null> {
-    const res = await fetch(`/api/agents/${id}/reviews`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(input),
-    });
-    const data = await res.json();
-    if (!res.ok) return data.error ?? "후기 등록에 실패했어요.";
-    setAgents((prev) => prev.map((a) => (a.id === id ? { ...a, reviews: [...a.reviews, data.review] } : a)));
-    showToast("활용 후기를 등록했어요. 작성자에게 알림이 갑니다.");
-    return null;
+    show(data.saved ? "저장했어요" : "저장을 취소했어요");
   }
 
   async function deleteAgent(id: string) {
@@ -111,36 +42,8 @@ export default function AgentBoard({
     const res = await fetch(`/api/agents/${id}`, { method: "DELETE" });
     if (res.ok) {
       setAgents((prev) => prev.filter((a) => a.id !== id));
-      if (detailId === id) setDetailId(null);
-      showToast("삭제했어요");
+      show("삭제했어요");
     }
-  }
-
-  function openEdit(a: AgentDTO) {
-    setEditing(a);
-    setRegisterOpen(true);
-  }
-
-  function closeForm() {
-    setRegisterOpen(false);
-    setEditing(null);
-  }
-
-  async function submitForm(data: AgentFormData): Promise<string | null> {
-    const url = editing ? `/api/agents/${editing.id}` : "/api/agents";
-    const res = await fetch(url, {
-      method: editing ? "PATCH" : "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    });
-    if (!res.ok) {
-      const e = await res.json();
-      return e.error ?? (editing ? "저장에 실패했어요." : "등록에 실패했어요.");
-    }
-    const { agent } = await res.json();
-    setAgents((prev) => (editing ? prev.map((a) => (a.id === editing.id ? agent : a)) : [agent, ...prev]));
-    closeForm();
-    return null;
   }
 
   // 탭·검색 필터링
@@ -166,8 +69,6 @@ export default function AgentBoard({
     list = list.filter((a) => (a.name + a.desc + a.cat + a.author).toLowerCase().includes(f));
   }
 
-  const detail = detailId ? agents.find((a) => a.id === detailId) ?? null : null;
-
   return (
     <>
       {list.length === 0 ? (
@@ -183,45 +84,15 @@ export default function AgentBoard({
               key={a.id}
               agent={a}
               mine={mine}
-              onOpen={() => setDetailId(a.id)}
               onToggleSave={() => toggleSave(a.id)}
-              onEdit={() => openEdit(a)}
+              onEdit={() => router.push(`/agents/${a.id}/edit`)}
               onDelete={() => deleteAgent(a.id)}
             />
           ))}
         </div>
       )}
 
-      <AgentDetailModal
-        agent={detail}
-        onClose={() => setDetailId(null)}
-        onToggleSave={toggleSave}
-        onCopyInstructions={copyInstructions}
-        onReview={submitReview}
-        onEdit={(a) => {
-          setDetailId(null);
-          openEdit(a);
-        }}
-        onDelete={(id) => deleteAgent(id)}
-        onRun={runAgent}
-      />
-
-      <AgentFormModal
-        open={registerOpen}
-        editing={editing}
-        onClose={closeForm}
-        onSubmit={submitForm}
-      />
-
-      <div
-        style={{
-          position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)",
-          background: "var(--text-1)", color: "#fff", fontSize: 12.5, padding: "10px 16px",
-          borderRadius: 20, opacity: toast ? 1 : 0, transition: "opacity .2s", pointerEvents: "none", zIndex: 100,
-        }}
-      >
-        {toast}
-      </div>
+      <Toast message={message} />
     </>
   );
 }
@@ -229,27 +100,32 @@ export default function AgentBoard({
 function AgentCard({
   agent: a,
   mine,
-  onOpen,
   onToggleSave,
   onEdit,
   onDelete,
 }: {
   agent: AgentDTO;
   mine: boolean;
-  onOpen: () => void;
   onToggleSave: () => void;
   onEdit: () => void;
   onDelete: () => void;
 }) {
+  // 카드 전체가 상세 페이지 링크다. 저장·수정·삭제 버튼은 이동을 막고 자기 동작만 한다.
+  const stop = (e: React.MouseEvent, fn: () => void) => {
+    e.preventDefault();
+    e.stopPropagation();
+    fn();
+  };
+
   return (
-    <div className="card" onClick={onOpen}>
+    <Link href={`/agents/${a.id}`} className="card">
       <div className="card-head">
         <span className="cat-badge">{a.cat}</span>
         <div className="card-head-right">
           <button
             className={`card-save ${a.saved ? "on" : ""}`}
             title="저장"
-            onClick={(e) => { e.stopPropagation(); onToggleSave(); }}
+            onClick={(e) => stop(e, onToggleSave)}
           >
             {a.saved ? <BookmarkFillIcon size={15} /> : <BookmarkIcon size={15} />}
           </button>
@@ -257,13 +133,17 @@ function AgentCard({
         </div>
       </div>
       <div className="card-title-row">
-        <div className="agent-icon"><BotIcon size={16} /></div>
+        <div className="agent-icon">
+          <BotIcon size={16} />
+        </div>
         <div className="card-title">{a.name}</div>
       </div>
       <div className="card-desc">{a.desc}</div>
       <div className="task-chips">
         {a.tasks.slice(0, 2).map((t, i) => (
-          <span className="task-chip" key={i}>{t}</span>
+          <span className="task-chip" key={i}>
+            {t}
+          </span>
         ))}
       </div>
       <div className="card-foot">
@@ -273,20 +153,24 @@ function AgentCard({
           <span className="dept">{a.dept}</span>
         </div>
         <div className="mini-acts">
-          <div className="mini-act"><ZapIcon size={13} /> {a.runs}</div>
-          <div className="mini-act"><CommentIcon size={13} /> {a.reviews.length}</div>
+          <div className="mini-act">
+            <ZapIcon size={13} /> {a.runs}
+          </div>
+          <div className="mini-act">
+            <CommentIcon size={13} /> {a.reviews.length}
+          </div>
         </div>
       </div>
       {mine ? (
         <div className="card-manage">
-          <button className="manage-btn" onClick={(e) => { e.stopPropagation(); onEdit(); }}>
+          <button className="manage-btn" onClick={(e) => stop(e, onEdit)}>
             <EditIcon size={13} /> 수정
           </button>
-          <button className="manage-btn del" onClick={(e) => { e.stopPropagation(); onDelete(); }}>
+          <button className="manage-btn del" onClick={(e) => stop(e, onDelete)}>
             <TrashIcon size={13} /> 삭제
           </button>
         </div>
       ) : null}
-    </div>
+    </Link>
   );
 }
