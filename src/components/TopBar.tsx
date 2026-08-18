@@ -31,7 +31,7 @@ export default function TopBar({
         <div className="logo-sq">
           <BulbIcon size={13} stroke="#fff" />
         </div>
-        AI 공유 허브 <span className="logo-sub">· 한화투자증권</span>
+        AI 활용 허브 <span className="logo-sub">· 한화투자증권</span>
       </Link>
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         {onUserClick ? (

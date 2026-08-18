@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { login, type LoginState } from "@/app/actions/auth";
-import { BulbIcon, SearchIcon } from "@/components/icons";
+import { BulbIcon, BotIcon, ChartIcon, SearchIcon } from "@/components/icons";
 import "@/styles/login.css";
 
 const initial: LoginState = {};
@@ -19,54 +19,54 @@ export default function LoginPage() {
             <BulbIcon size={15} />
           </div>
           <div>
-            <div className="login-left-logo-name">AI 공유 허브</div>
+            <div className="login-left-logo-name">AI 활용 허브</div>
             <div className="login-left-logo-sub">한화투자증권 임직원 전용</div>
           </div>
         </div>
 
         <div className="login-left-copy">
           <h2>
-            동료의 프롬프트로
+            에이전트는 한 곳에서,
             <br />
-            업무를 더 빠르게
+            AI 활용 현황은 한눈에
           </h2>
           <p>
-            임직원이 직접 만들고 검증한 Claude 프롬프트를
-            <br />한 곳에서 찾고 바로 활용해보세요.
+            임직원이 만든 Claude 에이전트를 찾아 바로 실행하고,
+            <br />팀·부서별 활용도와 구독 현황을 대시보드로 확인하세요.
           </p>
         </div>
 
         <div className="login-features">
           <div className="login-feat">
             <div className="login-feat-icon">
+              <ChartIcon size={15} />
+            </div>
+            <div>
+              <div className="login-feat-title">활용도 · 구독 현황 대시보드</div>
+              <div className="login-feat-desc">
+                누가 얼마나 쓰고, 어떤 업무에, 어느 부서까지 퍼졌는지 — 실행·등록 지표와 부서별 확산 현황을 임직원 누구나 확인
+              </div>
+            </div>
+          </div>
+          <div className="login-feat">
+            <div className="login-feat-icon">
               <SearchIcon size={15} />
             </div>
             <div>
-              <div className="login-feat-title">업무별 프롬프트 탐색</div>
+              <div className="login-feat-title">업무별 에이전트 탐색</div>
               <div className="login-feat-desc">
-                보고서, 리서치, 고객응대, 코딩 등 직무별로 검증된 프롬프트를 바로 복사해 사용
+                리서치, 보고서, 고객응대, 코딩 등 카테고리별로 검증된 에이전트를 찾아 Claude로 바로 실행
               </div>
             </div>
           </div>
           <div className="login-feat">
             <div className="login-feat-icon">
-              <UploadMini />
+              <BotIcon size={15} />
             </div>
             <div>
-              <div className="login-feat-title">나만의 프롬프트 공유</div>
+              <div className="login-feat-title">나만의 에이전트 등록</div>
               <div className="login-feat-desc">
-                잘 만든 프롬프트를 등록하고 동료의 반응을 확인해보세요
-              </div>
-            </div>
-          </div>
-          <div className="login-feat">
-            <div className="login-feat-icon">
-              <HeartMini />
-            </div>
-            <div>
-              <div className="login-feat-title">좋아요 · 댓글 · 복사 수</div>
-              <div className="login-feat-desc">
-                실제로 많이 쓰이는 프롬프트가 자연스럽게 상위에 노출
+                직접 만들거나 AI 초안 생성으로 에이전트를 등록하고 동료의 후기를 확인해보세요
               </div>
             </div>
           </div>
@@ -131,23 +131,7 @@ export default function LoginPage() {
   );
 }
 
-function UploadMini() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-      <polyline points="17 8 12 3 7 8" />
-      <line x1="12" x2="12" y1="3" y2="15" />
-    </svg>
-  );
-}
 
-function HeartMini() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-      <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
-    </svg>
-  );
-}
 
 function ShieldMini() {
   return (

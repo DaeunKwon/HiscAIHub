@@ -145,7 +145,7 @@ export default function AdminConsole() {
       <aside className="sidebar">
         <div className="side-logo">
           <div className="logo-sq"><Ic name="bulb" /></div>
-          <div className="side-logo-txt">AI 공유 허브<br /><span className="sub">관리자 콘솔</span></div>
+          <div className="side-logo-txt">AI 활용 허브<br /><span className="sub">관리자 콘솔</span></div>
         </div>
         <nav className="side-nav">
           {groups.map((g) => (

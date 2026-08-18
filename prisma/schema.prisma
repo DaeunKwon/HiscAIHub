@@ -1,4 +1,4 @@
-// AI 공유 허브 — Prisma 스키마
+// AI 활용 허브 — Prisma 스키마
 // 에이전트 단일 체계. 프롬프트·좋아요는 기획서 개정(2026-08-13)으로 제거했다.
 // 저장=비공개(집계·알림 없음, 존재 여부만 조회), 후기=공개(작성자에게 알림).
 // 부서 확산 지표는 AuditLog(action=agent_run, targetId=agentId, deptSnapshot)를 집계해 만든다.

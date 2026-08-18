@@ -4,7 +4,7 @@ import { getAdminSession } from "@/lib/admin-auth";
 import "@/styles/admin.css";
 
 export const metadata = {
-  title: "AI 공유 허브 · 관리자",
+  title: "AI 활용 허브 · 관리자",
 };
 
 export default async function AdminPage() {
