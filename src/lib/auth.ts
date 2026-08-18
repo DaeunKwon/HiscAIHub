@@ -1,7 +1,7 @@
 // 임직원 인증 (현재: @hanwha.com 도메인 검증 + 임시 공용 비밀번호).
 // 추후 이 파일의 자격 검증부만 Azure AD SSO(Auth.js provider)로 교체하면 됨.
 import { cookies } from "next/headers";
-import { signSession, verifySession } from "./session";
+import { signSession, verifySession, cookieSecure } from "./session";
 
 export const EMPLOYEE_COOKIE = "aihub_session";
 
@@ -42,7 +42,7 @@ export async function createEmployeeSession(session: EmployeeSession): Promise<v
     httpOnly: true,
     sameSite: "lax",
     path: "/",
-    secure: process.env.NODE_ENV === "production",
+    secure: cookieSecure(),
     maxAge: 60 * 60 * 8,
   });
 }

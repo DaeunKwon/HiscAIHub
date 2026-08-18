@@ -1,7 +1,7 @@
 // 관리자 인증 — 임직원 인증과 완전히 분리된 세션(별도 쿠키/시크릿).
 // 현재는 임시 admin/admin(env). 추후 권한체계로 교체 예정.
 import { cookies } from "next/headers";
-import { signSession, verifySession } from "./session";
+import { signSession, verifySession, cookieSecure } from "./session";
 
 export const ADMIN_COOKIE = "aihub_admin";
 
@@ -27,7 +27,7 @@ export async function createAdminSession(id: string): Promise<void> {
     httpOnly: true,
     sameSite: "lax",
     path: "/",
-    secure: process.env.NODE_ENV === "production",
+    secure: cookieSecure(),
     maxAge: 60 * 60 * 8,
   });
 }

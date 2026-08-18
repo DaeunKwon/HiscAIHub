@@ -1,0 +1,15 @@
+node_modules
+.next
+.git
+.env
+.env.*
+!.env.example
+design-reference
+docs
+ppt
+admin-dashboard-mockups
+*.md
+!README.md
+.github
+.vscode
+.DS_Store

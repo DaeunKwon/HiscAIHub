@@ -1,0 +1,62 @@
+# 운영(EC2) 배포용. 로컬 개발은 docker-compose.yml 사용.
+#   기동:        docker compose -f docker-compose.prod.yml up -d --build
+#   마이그레이션: docker compose -f docker-compose.prod.yml run --rm migrate
+#   시드(최초):   docker compose -f docker-compose.prod.yml run --rm seed
+# 비밀값은 서버의 .env 에서 읽는다 (커밋 금지).
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-aihub}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD 를 .env 에 설정하세요}
+      POSTGRES_DB: ${POSTGRES_DB:-aihub}
+      TZ: Asia/Seoul
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-aihub} -d ${POSTGRES_DB:-aihub}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build:
+      context: .
+      target: runner
+    image: aihub-app:latest
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      TZ: Asia/Seoul
+    ports:
+      - "80:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # 일회성: prisma migrate deploy (builder 스테이지에 prisma CLI 포함)
+  migrate:
+    build:
+      context: .
+      target: builder
+    image: aihub-tools:latest
+    env_file: .env
+    command: ["npx", "prisma", "migrate", "deploy"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    profiles: ["tools"]
+
+  # 일회성: 시드 데이터 (최초 1회)
+  seed:
+    image: aihub-tools:latest
+    env_file: .env
+    command: ["npx", "tsx", "prisma/seed.ts"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    profiles: ["tools"]
+
+volumes:
+  pgdata:

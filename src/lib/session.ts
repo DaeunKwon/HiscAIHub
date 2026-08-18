@@ -26,3 +26,15 @@ export async function verifySession<T>(
     return null;
   }
 }
+
+/**
+ * 세션 쿠키 secure 플래그.
+ * 기본: production 이면 true(HTTPS 전용). HTTPS 없이 IP 로 운영하는 파일럿에서는
+ * .env 에 COOKIE_SECURE=false 를 두어야 브라우저가 쿠키를 저장한다. 도메인·HTTPS 적용 후 제거.
+ */
+export function cookieSecure(): boolean {
+  const v = process.env.COOKIE_SECURE;
+  if (v === "false") return false;
+  if (v === "true") return true;
+  return process.env.NODE_ENV === "production";
+}

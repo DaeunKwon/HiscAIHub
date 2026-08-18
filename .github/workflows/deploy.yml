@@ -1,0 +1,28 @@
+# main 에 push 되면 EC2 에 SSH 로 접속해 deploy/deploy.sh 실행
+# 필요한 GitHub Secrets: EC2_HOST, EC2_USER(보통 ubuntu), EC2_SSH_KEY(개인키 전체 내용)
+name: Deploy to EC2
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          command_timeout: 30m
+          script: |
+            set -e
+            cd ~/HiscAIHub
+            bash deploy/deploy.sh
