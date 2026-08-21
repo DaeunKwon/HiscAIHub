@@ -42,11 +42,10 @@ export default function TeamRanking({
         <tr>
           <th>순위</th>
           <th>팀</th>
-          <th>종합점수</th>
           <th>실행</th>
-          <th>등록</th>
           <th>활성 인원</th>
           <th>인당 실행</th>
+          <th>등록</th>
           <th>전기간 대비</th>
         </tr>
       </thead>
@@ -67,20 +66,17 @@ export default function TeamRanking({
                   <span className="caret">{open ? "▾" : "▸"}</span> {r.team}
                   {r.division && <small>{r.division}</small>}
                 </td>
-                <td>
-                  <b>{r.score}</b>
-                </td>
                 <td>{r.runs}</td>
-                <td>{r.registrations}</td>
                 <td>{r.activeUsers}</td>
                 <td>{r.avgRunsPerUser.toFixed(1)}</td>
+                <td>{r.registrations}</td>
                 <td>
                   <DeltaCell value={r.delta} />
                 </td>
               </tr>
               {open && (
                 <tr>
-                  <td className="drill-td" colSpan={8}>
+                  <td className="drill-td" colSpan={7}>
                     <div className="howto-sub" style={{ marginBottom: 8 }}>
                       {r.team}이(가) 실행한 에이전트
                     </div>
