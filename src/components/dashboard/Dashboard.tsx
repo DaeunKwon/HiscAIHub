@@ -126,7 +126,7 @@ export default function Dashboard() {
               </div>
               <SpreadPanel
                 spread={data.spread}
-                totalTeams={data.teams.length}
+                totalTeams={data.totalTeams}
                 openId={openSpread}
                 onToggle={(id) => setOpenSpread(openSpread === id ? null : id)}
               />

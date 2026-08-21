@@ -84,6 +84,7 @@ export type DashboardData = {
   kpis: KpiCard[];
   savedHours: number;
   teams: TeamRow[];
+  totalTeams: number;
   powerUser: PersonRow | null;
   individuals: PersonRow[];
   byCategory: CategoryRow[];
@@ -256,6 +257,8 @@ export async function getDashboardData(period: Period): Promise<DashboardData> {
     })
     .sort((a, b) => b.runs - a.runs);
 
+  const totalTeams = organization.teamDivisions.size || teams.length;
+
   // ---------- 부문별 허브 활성률 ----------
   const activeIdsByDivision = new Map<string, Set<string>>();
   for (const run of runs) {
@@ -426,6 +429,7 @@ export async function getDashboardData(period: Period): Promise<DashboardData> {
     kpis,
     savedHours: Math.round(savedMin / 60),
     teams,
+    totalTeams,
     powerUser: individuals[0] ?? null,
     individuals: individuals.slice(0, 5),
     byCategory,
